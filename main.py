@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-TODO
+    Run OCR on a motor video to extract useful information
 """
 
 import pytesseract
@@ -32,13 +32,13 @@ class DataConfig:
 video_path = "resources/long.mp4"
 image_path = "resources/frame_raw.png"
 output_file = "output/output.csv"
-max_cnt = 1000
+max_cnt = 100000
 
 min_value = 20.0
 max_value = 100.0
 
 data_config = {
-    "temperature": DataConfig(20.0, 100.0, slice(295, 311), slice(750, 770)),
+    "temperature": DataConfig(20.0, 100.0, slice(295, 311), slice(749, 770)),
     "current": DataConfig(0.0, 20.0, slice(295, 311), slice(576, 620)),
     "speed": DataConfig(0.0, 1500, slice(295, 311), slice(402, 450)),
 }
@@ -125,6 +125,7 @@ def run_video():
     outputs["t"] = []
 
     while cap.isOpened():
+        # Read video frame
         ret, frame = cap.read()
 
         cnt += 1
@@ -133,36 +134,13 @@ def run_video():
         if cnt >= max_cnt:
             break
 
-        print(cnt)
-
         if not ret:
             print("Can't receive frame (stream end?). Exiting...")
             break
 
-        # cropped = frame[295:311, 590:620]  # current, second digit
-        # cropped = frame[295:311, 576:592]  # current, first digit
-        # cropped = frame[295:311, 576:620]  # current
-        # cropped = frame[295:311, 402:450]  # RPM
-        # cropped = frame[295:311, 750:770]  # temperature
-        # shape = np.shape(cropped)
-        # cropped = cv2.resize(
-        #     cropped, (shape[1] * 2, shape[0] * 2), interpolation=cv2.INTER_LINEAR
-        # )
-        #
-        # cropped = unsharp_mask(cropped, kernel_size=(5, 5), amount=2, sigma=1)
-        # cropped = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
-        # cropped = cv2.threshold(
-        #     cropped, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
-        # )[1]
-        #
-        # value = ocr(cropped)
-        #
-        # if value is not None:
-        #     values.append(value)
-        #     t.append(cnt)
-        #
-        # print(value)
+        print(cnt)
 
+        # Perform OCR on the various fields
         for key in data_config:
             config = data_config[key]
             cropped = preprocess_frame(frame, config.slice_x, config.slice_y)
@@ -171,6 +149,27 @@ def run_video():
 
         outputs["t"].append(cnt)
 
+        # Display the information nicely
+        for key in data_config:
+            config = data_config[key]
+            cv2.rectangle(
+                frame,
+                (config.slice_y.start, config.slice_x.start),
+                (config.slice_y.stop - 1, config.slice_x.stop - 1),
+                (0, 255, 0),
+                1,
+            )
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            value = str(outputs[key][-1])
+
+            if outputs[key][-1] is None:
+                colour = (255, 0, 0)
+                value = "None"
+            else:
+                colour = (0, 255, 0)
+
+            position = [config.slice_y.start, config.slice_x.start - 8]
+            cv2.putText(frame, value, position, font, 0.5, colour, 1, cv2.LINE_AA)
 
         cv2.imshow("frame", frame)
 
@@ -195,36 +194,27 @@ def run_image():
     cv2.waitKey(0)
 
 
-if __name__ == "__main__":
-    outputs = run_video()
+# =========================================================
+# RESULTS PROCESSING
+#
 
-    print(outputs)
-    exit()
+def export_outputs(outputs: dict):
+    keys = list(outputs.keys())
+    del keys[keys.index("t")]
+    keys.insert(0, "t")
 
     with open(output_file, "w", newline="") as csv_file:
-        fieldnames = ["t", "temperature"]
         writer = csv.DictWriter(
-            csv_file, fieldnames=fieldnames, quotechar='"', quoting=csv.QUOTE_ALL
+            csv_file, fieldnames=keys, quotechar='"', quoting=csv.QUOTE_ALL
         )
         writer.writeheader()
 
-        for k in range(len(t)):
-            writer.writerow({"t": t[k], "temperature": values[k]})
+        for k in range(len(outputs["t"])):
+            writer.writerow({key: outputs[key][k] for key in keys})
 
-    # with open("output/data_out", "r") as f:
-    #     raw_output = f.readline().strip("][\n").split(', ')
-    #
-    # output = []
-    # min_value = 20.0
-    # max_value = 100.0
-    #
-    # for x in raw_output:
-    #     try:
-    #         x = float(x)
-    #     except ValueError:
-    #         continue
-    #
-    #     if x < min_value or x > max_value:
-    #         continue
-    #
-    #     output.append(x)
+
+if __name__ == "__main__":
+    outputs = run_video()
+    export_outputs(outputs)
+
+    print(outputs)
