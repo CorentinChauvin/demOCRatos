@@ -34,13 +34,10 @@ image_path = "resources/frame_raw.png"
 output_file = "output/output.csv"
 max_cnt = 100000
 
-min_value = 20.0
-max_value = 100.0
-
 data_config = {
     "temperature": DataConfig(20.0, 100.0, slice(295, 311), slice(749, 770)),
     "current": DataConfig(0.0, 20.0, slice(295, 311), slice(576, 620)),
-    "speed": DataConfig(0.0, 1500, slice(295, 311), slice(402, 450)),
+    "speed": DataConfig(-10.0, 1500, slice(295, 311), slice(402, 450)),
 }
 
 
@@ -90,7 +87,7 @@ def ocr(image: MatLike) -> str:
     """
     img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     output = pytesseract.image_to_string(
-        img_rgb, config="--dpi 20 --psm 13 -c tessedit_char_whitelist=0123456789."
+        img_rgb, config="--dpi 20 --psm 13 -c tessedit_char_whitelist=-0123456789."
     )
 
     return output.strip()
