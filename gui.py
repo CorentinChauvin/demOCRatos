@@ -35,21 +35,58 @@ class App(ctk.CTk):
         self._pad = 10
         self._create_header_frame()
         self._create_options_frame()
+        self._create_output_frame()
 
         self._header_frame.grid(row=0, column=0, sticky="nsew")
         self._options_frame.grid(row=1, column=0, sticky="nsew")
+        self._output_frame.grid(row=2, column=0, sticky="nsew")
 
         self._header_frame.grid(padx=(self._pad, self._pad), pady=(self._pad, 0))
         self._options_frame.grid(padx=(self._pad, self._pad), pady=(0, self._pad))
+        self._output_frame.grid(padx=(self._pad, self._pad), pady=(0, self._pad))
 
         # Configure the grid layout
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=0)
 
-        # Set default values
+        # Set default values and statuses
+        self._stop_btn.configure(state="disabled")  # TODO: change state dynamically
         self._status_txt.configure(text="10:03 (12 FPS)")
+        self._status_txt.configure(
+            fg_color="green"
+        )  # TODO: change the colour depending on the status
         self._fps_settings_menu.set("1")
         self._ocr_settings_menu.set("Tesseract")
+
+        # Configure callbacks
+        from src.graphics import TkImage
+        self._test_img = TkImage(self._output_frame)
+        self._test_img.get_tk_canvas().grid(row=0, column=0)
+
+        self._fps = 25.0
+        self.after(int(1000.0/self._fps), self._update_img)
+        self._t0 = 0.0
+
+    def _update_img(self):
+        print("Updating image")
+        from PIL import ImageGrab
+        import numpy as np
+        from time import time
+
+        print(f"{time() - self._t0: .3f}")
+        self._t0 = time()
+
+        t0 = time()
+        im2 = ImageGrab.grab(bbox =(0, 0, 500, 300))
+        t1 = time()
+        im2 = np.asarray(im2)
+        self._test_img.update(im2)
+        t2 = time()
+
+        print(f"{t2 -t1:.3f}, {t1 - t0:.3f}")
+
+        self.after(int(1000.0/self._fps), self._update_img)
+
 
     def _create_header_frame(self):
         """
@@ -59,28 +96,24 @@ class App(ctk.CTk):
 
         self._start_btn = ctk.CTkButton(
             master=self._header_frame,
-            fg_color="green",
-            border_width=2,
-            text_color="black",
-            hover_color="gray",
+            height=40,
             text="Start",
         )
         self._stop_btn = ctk.CTkButton(
             master=self._header_frame,
-            fg_color="orange",
-            border_width=2,
-            text_color="black",
-            hover_color="gray",
+            height=40,
             text="Stop",
         )
         # self._stop_btn.configure(state="disabled")  # TODO: add logic to disable btn
         # self._stop_btn.configure(fg_color="gray")
-        self._status_txt = ctk.CTkLabel(self._header_frame)
+        self._status_txt = ctk.CTkLabel(self._header_frame, justify="right")
 
         # Grid placement of all children
-        self._start_btn.grid(row=0, column=0, sticky="nsew")
-        self._stop_btn.grid(row=0, column=1, sticky="nsew")
-        self._status_txt.grid(row=0, column=2, sticky="nsew")
+        self._start_btn.grid(row=0, column=0)
+        self._stop_btn.grid(row=0, column=1)
+        self._status_txt.grid(row=0, column=2, sticky="e")
+        self._header_frame.grid_columnconfigure((0, 1), weight=0)
+        self._header_frame.grid_columnconfigure(2, weight=1)
 
         # Padding of all children
         self._start_btn.grid(padx=(self._pad, 0), pady=(self._pad, self._pad))
@@ -175,7 +208,9 @@ class App(ctk.CTk):
 
         # Unsharp mask row
         self._unsharp_frame = ctk.CTkFrame(self._captures_view)
-        self._unsharp_kernel_label = ctk.CTkLabel(self._unsharp_frame, text="Unsharp kernel")
+        self._unsharp_kernel_label = ctk.CTkLabel(
+            self._unsharp_frame, text="Unsharp kernel"
+        )
         self._unsharp_kernel_entry = ctk.CTkEntry(self._unsharp_frame, width=50)
         self._unsharp_sigma_label = ctk.CTkLabel(self._unsharp_frame, text="Sigma")
         self._unsharp_sigma_entry = ctk.CTkEntry(self._unsharp_frame, width=50)
@@ -200,8 +235,12 @@ class App(ctk.CTk):
 
         # Show options row
         self._show_capture_frame = ctk.CTkFrame(self._captures_view)
-        self._show_output_entry = ctk.CTkCheckBox(self._show_capture_frame, text="Show output")
-        self._show_graph_entry = ctk.CTkCheckBox(self._show_capture_frame, text="Show graph")
+        self._show_output_entry = ctk.CTkCheckBox(
+            self._show_capture_frame, text="Show output"
+        )
+        self._show_graph_entry = ctk.CTkCheckBox(
+            self._show_capture_frame, text="Show graph"
+        )
 
         self._show_capture_frame.grid(row=4, column=0, columnspan=4)
         self._show_output_entry.grid(row=0, column=0)
@@ -247,6 +286,23 @@ class App(ctk.CTk):
         self._logs_tbox = ctk.CTkTextbox(self._logs_view, state="disabled")
         self._logs_tbox.grid(row=0, column=0, sticky="nesw")
         self._logs_view.grid_columnconfigure(0, weight=1)
+
+    def _create_output_frame(self):
+        """
+        Creates the frame to display all capture outputs
+        """
+        self._output_frame = ctk.CTkFrame(self, corner_radius=10)
+
+        # self._test_label = ctk.CTkLabel(self._output_frame, text="BLETR")
+        # self._test_label.grid(row=0, column=0)
+
+        # from src.graphics import create_the_button
+        # self._the_button = create_the_button(self._output_frame)
+
+        # self._the_button.grid(row=0, column=0)
+        # self._the_button.pack(side=tk.BOTTOM)
+
+
 
     def _set_padding(self, frame: ctk.CTkBaseClass, padding: int):
         """
