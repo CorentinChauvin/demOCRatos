@@ -2,19 +2,18 @@
 TODO
 """
 
-import tkinter
-import tkinter.messagebox
+from src.capture import Captures
+from src.gui_elements import Entry
 import customtkinter as ctk
 import tkinter as tk
+from PIL import ImageGrab
+import numpy as np
+from time import time
 import sys
 
 
-ctk.set_appearance_mode(
-    "System"
-)  # Modes: "System" (standard), "Dark", "Light"
-ctk.set_default_color_theme(
-    "blue"
-)  # Themes: "blue" (standard), "green", "dark-blue
+ctk.set_appearance_mode("System")  # Modes: "System" (standard), "Dark", "Light"
+ctk.set_default_color_theme("blue")  # Themes: "blue" (standard), "green", "dark-blue
 
 
 class App(ctk.CTk):
@@ -30,6 +29,12 @@ class App(ctk.CTk):
         # self.geometry(f"{1100}x{580}")
         self.bind("<Escape>", lambda _: sys.exit())  # FIXME: for development only
         self.bind("q", lambda _: sys.exit())  # FIXME: for development only
+
+        # Create captures
+        self._captures = Captures()
+        self._selected_capture = self._captures.get_first()  # its config is displayed
+
+        self._selected_capture.set_area(0, 0, 420, 420)
 
         # Create the frames
         self._pad = 10
@@ -58,35 +63,16 @@ class App(ctk.CTk):
         self._fps_settings_menu.set("1")
         self._ocr_settings_menu.set("Tesseract")
 
+        self._update_capture_options()
+
         # Configure callbacks
         from src.graphics import TkImage
+
         self._test_img = TkImage(self._output_frame)
         self._test_img.get_tk_canvas().grid(row=0, column=0)
 
-        self._fps = 25.0
-        self.after(int(1000.0/self._fps), self._update_img)
-        self._t0 = 0.0
-
-    def _update_img(self):
-        print("Updating image")
-        from PIL import ImageGrab
-        import numpy as np
-        from time import time
-
-        print(f"{time() - self._t0: .3f}")
-        self._t0 = time()
-
-        t0 = time()
-        im2 = ImageGrab.grab(bbox =(0, 0, 500, 300))
-        t1 = time()
-        im2 = np.asarray(im2)
-        self._test_img.update(im2)
-        t2 = time()
-
-        print(f"{t2 -t1:.3f}, {t1 - t0:.3f}")
-
-        self.after(int(1000.0/self._fps), self._update_img)
-
+        self._fps = 10.0
+        self.after(int(1000.0 / self._fps), self._main_loop)
 
     def _create_header_frame(self):
         """
@@ -139,16 +125,55 @@ class App(ctk.CTk):
         """
         Creates the view to configure the OCR captures
         """
+
+        # Callbacks for operations
+        def add_capture():
+            self._selected_capture = self._captures.add_capture()
+            self._update_capture_options()
+
+        def rename_capture():
+            dialog = ctk.CTkInputDialog(text="New capture name:", title="Renaming")
+            name = dialog.get_input()
+
+            if name is not None and self._captures.rename(self._selected_capture, name):
+                self._update_capture_options()
+            else:
+                print("Invalid name!")
+
+        def remove_capture():
+            self._captures.remove_capture(self._selected_capture.name)
+            self._selected_capture = self._captures.get_first()
+            self._update_capture_options()
+
+        def update_rect_area(*_):
+            try:
+                self._selected_capture.set_area(
+                    int(self._rect_xmin_entry.get_value()),
+                    int(self._rect_ymin_entry.get_value()),
+                    int(self._rect_xmax_entry.get_value()),
+                    int(self._rect_ymax_entry.get_value()),
+                )
+            except ValueError:
+                return
+
         # Menu and add/delete buttons row
         self._captures_menu = ctk.CTkOptionMenu(
             self._captures_view,
-            values=["New capture with long text"],
             dynamic_resizing=False,
             width=290,
+            command=lambda name: self._update_capture_options(name),
         )
-        self._capture_add_btn = ctk.CTkButton(self._captures_view, text="Add", width=80)
+        self._capture_add_btn = ctk.CTkButton(
+            self._captures_view,
+            text="Add",
+            width=80,
+            command=add_capture,
+        )
+        self._capture_rename_btn = ctk.CTkButton(
+            self._captures_view, text="Rename", width=80, command=rename_capture
+        )
         self._capture_remove_btn = ctk.CTkButton(
-            self._captures_view, text="Remove", width=80
+            self._captures_view, text="Remove", width=80, command=remove_capture
         )
 
         # Rectangle settings row
@@ -158,34 +183,44 @@ class App(ctk.CTk):
             self._captures_view, text="Select", width=80
         )
 
-        self._rect_xmin_tbox = ctk.CTkEntry(self._rect_select_frame, width=50)
-        self._rect_xmax_tbox = ctk.CTkEntry(self._rect_select_frame, width=50)
-        self._rect_ymin_tbox = ctk.CTkEntry(self._rect_select_frame, width=50)
-        self._rect_ymax_tbox = ctk.CTkEntry(self._rect_select_frame, width=50)
+        self._rect_xmin_entry = Entry(
+            master=self._rect_select_frame, width=50, command=update_rect_area
+        )
+        self._rect_ymin_entry = Entry(
+            master=self._rect_select_frame, width=50, command=update_rect_area
+        )
+        self._rect_xmax_entry = Entry(
+            master=self._rect_select_frame, width=50, command=update_rect_area
+        )
+        self._rect_ymax_entry = Entry(
+            master=self._rect_select_frame, width=50, command=update_rect_area
+        )
 
         self._captures_menu.grid(row=0, column=0, columnspan=2)
         self._capture_add_btn.grid(row=0, column=2)
-        self._capture_remove_btn.grid(row=0, column=3)
+        self._capture_rename_btn.grid(row=0, column=3)
+        self._capture_remove_btn.grid(row=0, column=4)
         self._rect_txt.grid(row=1, column=0)
         self._rect_select_frame.grid(row=1, column=1)
         self._rect_select_btn.grid(row=1, column=2)
 
-        self._rect_xmin_tbox.grid(row=1, column=0)
-        self._rect_xmax_tbox.grid(row=1, column=1)
-        self._rect_ymin_tbox.grid(row=1, column=2)
-        self._rect_ymax_tbox.grid(row=1, column=3)
+        self._rect_xmin_entry.grid(row=1, column=0)
+        self._rect_ymin_entry.grid(row=1, column=1)
+        self._rect_xmax_entry.grid(row=1, column=2)
+        self._rect_ymax_entry.grid(row=1, column=3)
 
         self._captures_menu.grid(padx=(self._pad, 0), pady=(0, 0))
         self._capture_add_btn.grid(padx=(self._pad, 0), pady=(0, 0))
+        self._capture_rename_btn.grid(padx=(self._pad, 0), pady=(0, 0))
         self._capture_remove_btn.grid(padx=(self._pad, self._pad), pady=(0, 0))
         self._rect_txt.grid(padx=(self._pad, 0), pady=(self._pad, 0))
         self._rect_select_frame.grid(padx=(self._pad, 0), pady=(self._pad, 0))
         self._rect_select_btn.grid(padx=(self._pad, 0), pady=(self._pad, 0))
 
-        self._rect_xmin_tbox.grid(padx=(self._pad, 0), pady=(0, 0))
-        self._rect_xmax_tbox.grid(padx=(self._pad, 0), pady=(0, 0))
-        self._rect_ymin_tbox.grid(padx=(self._pad, 0), pady=(0, 0))
-        self._rect_ymax_tbox.grid(padx=(self._pad, 0), pady=(0, 0))
+        self._rect_xmin_entry.grid(padx=(self._pad, 0), pady=(0, 0))
+        self._rect_ymin_entry.grid(padx=(self._pad, 0), pady=(0, 0))
+        self._rect_xmax_entry.grid(padx=(self._pad, 0), pady=(0, 0))
+        self._rect_ymax_entry.grid(padx=(self._pad, 0), pady=(0, 0))
 
         # Min/max row
         self._min_max_frame = ctk.CTkFrame(self._captures_view)
@@ -287,6 +322,31 @@ class App(ctk.CTk):
         self._logs_tbox.grid(row=0, column=0, sticky="nesw")
         self._logs_view.grid_columnconfigure(0, weight=1)
 
+    def _main_loop(self):
+        """
+        Periodically runs OCR and updates graphs and display
+        """
+        t0 = time()
+
+        # Capture the screen
+        screen_img = ImageGrab.grab()
+        screen_img = np.asarray(screen_img)
+
+        # TESTSETESTSETEST
+        capture_img = self._selected_capture.slice_area(screen_img)
+        self._test_img.update(capture_img)
+
+        # Run OCR on all active captures
+        # TODO
+
+        # Update displayed captures
+        # TODO
+
+        # Schedule the next loop iteration
+        next_wait_time = int(1000.0 / self._fps - (time() - t0) * 1000)
+        next_wait_time = max(10, next_wait_time)  # minimum interface refresh time
+        self.after(next_wait_time, self._main_loop)
+
     def _create_output_frame(self):
         """
         Creates the frame to display all capture outputs
@@ -302,14 +362,41 @@ class App(ctk.CTk):
         # self._the_button.grid(row=0, column=0)
         # self._the_button.pack(side=tk.BOTTOM)
 
-
-
     def _set_padding(self, frame: ctk.CTkBaseClass, padding: int):
         """
         Sets the padding for all children elements of the given frame
         """
         for child in frame.winfo_children():
             child.grid_configure(padx=padding, pady=padding)
+
+    def _update_capture_options(self, selected: None | str = None):
+        """
+        Updates the capture frame for the currently selected capture
+
+        Args:
+            - selected: If provided, will switch the selected capture
+        """
+        print("Called with selected = ", selected)
+
+        if selected is not None:
+            new_capture = self._captures[selected]
+
+            if new_capture is not None:
+                self._selected_capture = new_capture
+
+        self._captures_menu.configure(values=self._captures.get_names())
+        self._captures_menu.set(self._selected_capture.name)
+
+        def update_entry_text(entry: ctk.CTkEntry, text):
+            entry.delete(0, tk.END)
+            entry.insert(0, text)
+
+        self._selected_capture.toggle_edit(False)
+        update_entry_text(self._rect_xmin_entry, self._selected_capture.x_min)
+        update_entry_text(self._rect_xmax_entry, self._selected_capture.x_max)
+        update_entry_text(self._rect_ymin_entry, self._selected_capture.y_min)
+        update_entry_text(self._rect_ymax_entry, self._selected_capture.y_max)
+        self._selected_capture.toggle_edit(True)
 
 
 if __name__ == "__main__":
