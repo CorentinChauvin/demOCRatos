@@ -3,10 +3,11 @@ TODO
 """
 
 from src.capture import Captures
-from src.gui_elements import Entry
+from src.gui_elements import Entry, RectangleSelectionWindow
 import customtkinter as ctk
 import tkinter as tk
-from PIL import ImageGrab
+from mss import mss
+from PIL import Image
 import numpy as np
 from time import time
 import sys
@@ -35,6 +36,7 @@ class App(ctk.CTk):
         self._selected_capture = self._captures.get_first()  # its config is displayed
 
         self._selected_capture.set_area(0, 0, 420, 420)
+        self._sct = mss()  # used to capture the screen
 
         # Create the frames
         self._pad = 10
@@ -66,12 +68,13 @@ class App(ctk.CTk):
         self._update_capture_options()
 
         # Configure callbacks
-        from src.graphics import TkImage
+        from src.gui_elements import TkImage, TkImage2
 
-        self._test_img = TkImage(self._output_frame)
-        self._test_img.get_tk_canvas().grid(row=0, column=0)
+        self._test_img = TkImage2(self._output_frame)
+        self._test_img.get_tk_canvas().grid(row=0, column=0, sticky="nsew")
+        self._output_frame.grid_columnconfigure(0, weight=1)
 
-        self._fps = 10.0
+        self._fps = 20.0
         self.after(int(1000.0 / self._fps), self._main_loop)
 
     def _create_header_frame(self):
@@ -127,11 +130,11 @@ class App(ctk.CTk):
         """
 
         # Callbacks for operations
-        def add_capture():
+        def __add_capture():
             self._selected_capture = self._captures.add_capture()
             self._update_capture_options()
 
-        def rename_capture():
+        def __rename_capture():
             dialog = ctk.CTkInputDialog(text="New capture name:", title="Renaming")
             name = dialog.get_input()
 
@@ -140,12 +143,12 @@ class App(ctk.CTk):
             else:
                 print("Invalid name!")
 
-        def remove_capture():
+        def __remove_capture():
             self._captures.remove_capture(self._selected_capture.name)
             self._selected_capture = self._captures.get_first()
             self._update_capture_options()
 
-        def update_rect_area(*_):
+        def __update_rect_area(*_):
             try:
                 self._selected_capture.set_area(
                     int(self._rect_xmin_entry.get_value()),
@@ -155,6 +158,21 @@ class App(ctk.CTk):
                 )
             except ValueError:
                 return
+
+        # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+        self.toplevel_window = None
+
+        def __select_react_area_cb(xmin: int, ymin: int, xmax: int, ymax: int):
+            self._selected_capture.set_area(xmin, ymin, xmax, ymax)
+            self._update_capture_options()
+
+        def __select_rect_area():
+            if self.toplevel_window is None or not self.toplevel_window.winfo_exists():
+                self.toplevel_window = RectangleSelectionWindow(self)  # create window if its None or destroyed
+                self.toplevel_window.attach_cb(__select_react_area_cb)
+            else:
+                self.toplevel_window.focus()  # if window exists focus it
+        # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
         # Menu and add/delete buttons row
         self._captures_menu = ctk.CTkOptionMenu(
@@ -167,33 +185,33 @@ class App(ctk.CTk):
             self._captures_view,
             text="Add",
             width=80,
-            command=add_capture,
+            command=__add_capture,
         )
         self._capture_rename_btn = ctk.CTkButton(
-            self._captures_view, text="Rename", width=80, command=rename_capture
+            self._captures_view, text="Rename", width=80, command=__rename_capture
         )
         self._capture_remove_btn = ctk.CTkButton(
-            self._captures_view, text="Remove", width=80, command=remove_capture
+            self._captures_view, text="Remove", width=80, command=__remove_capture
         )
 
         # Rectangle settings row
         self._rect_txt = ctk.CTkLabel(self._captures_view, text="Area")
         self._rect_select_frame = ctk.CTkFrame(self._captures_view)
         self._rect_select_btn = ctk.CTkButton(
-            self._captures_view, text="Select", width=80
+            self._captures_view, text="Select", width=80, command=__select_rect_area
         )
 
         self._rect_xmin_entry = Entry(
-            master=self._rect_select_frame, width=50, command=update_rect_area
+            master=self._rect_select_frame, width=50, command=__update_rect_area
         )
         self._rect_ymin_entry = Entry(
-            master=self._rect_select_frame, width=50, command=update_rect_area
+            master=self._rect_select_frame, width=50, command=__update_rect_area
         )
         self._rect_xmax_entry = Entry(
-            master=self._rect_select_frame, width=50, command=update_rect_area
+            master=self._rect_select_frame, width=50, command=__update_rect_area
         )
         self._rect_ymax_entry = Entry(
-            master=self._rect_select_frame, width=50, command=update_rect_area
+            master=self._rect_select_frame, width=50, command=__update_rect_area
         )
 
         self._captures_menu.grid(row=0, column=0, columnspan=2)
@@ -329,8 +347,20 @@ class App(ctk.CTk):
         t0 = time()
 
         # Capture the screen
-        screen_img = ImageGrab.grab()
-        screen_img = np.asarray(screen_img)
+        # screen_img = ImageGrab.grab()
+        # screen_img = np.asarray(screen_img)
+
+        monitor = self._sct.monitors[1]
+        screen_img = self._sct.grab((
+            monitor["left"],
+            monitor["top"],
+            monitor["left"] + monitor["width"],
+            monitor["top"] + monitor["height"],
+        ))
+        screen_img = Image.frombytes(
+            "RGB", screen_img.size, screen_img.bgra, "raw", "BGRX"
+        )
+        screen_img = np.array(screen_img)[:, :, :3]
 
         # TESTSETESTSETEST
         capture_img = self._selected_capture.slice_area(screen_img)

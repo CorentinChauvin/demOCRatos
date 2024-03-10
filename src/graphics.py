@@ -21,40 +21,6 @@ class Graph:
         pass  # TODO
 
 
-class TkImage:
-    """
-    References a Matplotlib image figure in a TK widget
-    """
-    def __init__(self, master: ctk.CTkBaseClass):
-        """
-        TODO
-        """
-        self._fig = Figure(layout="tight")
-        self._ax = self._fig.add_subplot(111)
-        self._ax.set_axis_off()
-        self._tk_canvas = FigureCanvasTkAgg(self._fig, master=master)
-
-        self._img: None | AxesImage = None
-        # self._tk_canvas.draw()
-
-    def update(self, img: np.ndarray):
-        """
-        Updates the image given a raw image (Numpy array)
-        """
-        if self._img is None:
-            self._img = self._ax.imshow(img)
-        else:
-            self._img.set_data(img)
-
-        self._tk_canvas.draw()
-
-    def get_tk_canvas(self) -> tk.Canvas:
-        """
-        TODO
-        """
-        return self._tk_canvas.get_tk_widget()
-
-
 def create_tk_figure(figure: Figure, master: ctk.CTkBaseClass) -> tk.Canvas:
     """
     Creates a TK widget from a Matplotlib figure
