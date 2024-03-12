@@ -2,6 +2,8 @@
 Class storing configuration data about a capture
 """
 
+from src.gui_elements import TkImage2
+import customtkinter as ctk
 import numpy as np
 
 
@@ -9,13 +11,20 @@ class Capture:
     """
     Manages a capture's configuration and data
     """
-    def __init__(self, name: str):
+    def __init__(self, name: str, img_root: ctk.CTkBaseClass):
         """
         Sets initial name and default values
+
+        Args:
+            - name:     Name of the capture
+            - img_root: Root of the displayed image
         """
-        self._can_edit = True  # whether the capture's config can be changed
         self.name = name
+        self._can_edit = True  # whether the capture's config can be changed
         self.set_area(0, 0, 0, 0)  # default values
+
+        self.is_enabled = True  # whether to compute its output and display it
+        self.output_img = TkImage2(img_root)  # displayed output image
 
     def set_area(self, x_min: int, y_min: int, x_max: int, y_max: int):
         """
@@ -26,6 +35,25 @@ class Capture:
             self.y_min = y_min
             self.x_max = x_max
             self.y_max = y_max
+
+    def update(self, screen_img: np.ndarray) -> float | None:
+        """
+        Processes the full screen image and displays its outputs
+
+        Args:
+            - screen_img: Full screen image
+        Returns:
+            - computed output (displayed image on the screen)
+            OR
+            - None if output not enabled
+        """
+        if not self.is_enabled:
+            return None
+
+        img = self.slice_area(screen_img)
+        self.output_img.update(img)
+
+        return 0.0
 
     def slice_area(self, array: np.ndarray) -> np.ndarray:
         """
@@ -51,15 +79,16 @@ class Captures:
     """
     Manages all captures
     """
-    def __init__(self):
-        self._captures = []
+    def __init__(self, root: ctk.CTkBaseClass):
+        self._captures: list[Capture] = []
+        self._root = root
         self.add_capture()
 
     def add_capture(self) -> Capture:
         """
         Creates a new capture with default name, and returns it
         """
-        self._captures.append(Capture(f"New capture {len(self._captures)}"))
+        self._captures.append(Capture(f"New capture {len(self._captures)}", self._root))
         return self._captures[-1]
 
     def remove_capture(self, key: str):
@@ -111,3 +140,29 @@ class Captures:
 
         return False
 
+    def update_layout(self):
+        """
+        Updates the tk layout to display all enabled outputs
+        """
+        for slave in self._root.grid_slaves():
+            slave.grid_forget()
+
+        k = 0
+
+        for capture in self._captures:
+            if capture.is_enabled:
+                capture.output_img.get_tk_canvas().grid(row=0, column=k, sticky="nsew")
+                k += 1
+
+    def update(self, screen_img: np.ndarray):
+        """
+        Processes the full screen image and displays all enabled outputs
+
+        Args:
+            - screen_img: Full screen image
+        """
+        for capture in self._captures:
+            if not capture.is_enabled:
+                continue
+
+            capture.update(screen_img)

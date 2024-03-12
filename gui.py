@@ -6,7 +6,7 @@ from src.capture import Captures
 from src.gui_elements import Entry, RectangleSelectionWindow
 import customtkinter as ctk
 import tkinter as tk
-from mss import mss
+import mss
 from PIL import Image
 import numpy as np
 from time import time
@@ -31,12 +31,7 @@ class App(ctk.CTk):
         self.bind("<Escape>", lambda _: sys.exit())  # FIXME: for development only
         self.bind("q", lambda _: sys.exit())  # FIXME: for development only
 
-        # Create captures
-        self._captures = Captures()
-        self._selected_capture = self._captures.get_first()  # its config is displayed
-
-        self._selected_capture.set_area(0, 0, 420, 420)
-        self._sct = mss()  # used to capture the screen
+        self._rect_selec_window = None  # reference to the window to select the capture zone
 
         # Create the frames
         self._pad = 10
@@ -52,6 +47,14 @@ class App(ctk.CTk):
         self._options_frame.grid(padx=(self._pad, self._pad), pady=(0, self._pad))
         self._output_frame.grid(padx=(self._pad, self._pad), pady=(0, self._pad))
 
+        # Create captures
+        self._captures = Captures(self._output_frame)
+        self._selected_capture = self._captures.get_first()  # its config is displayed
+
+        self._captures.update_layout()
+        self._selected_capture.set_area(0, 0, 420, 420)
+        self._sct = mss.mss()  # used to capture the screen
+
         # Configure the grid layout
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=0)
@@ -66,14 +69,9 @@ class App(ctk.CTk):
         self._ocr_settings_menu.set("Tesseract")
 
         self._update_capture_options()
+        self._captures.update_layout()
 
         # Configure callbacks
-        from src.gui_elements import TkImage, TkImage2
-
-        self._test_img = TkImage2(self._output_frame)
-        self._test_img.get_tk_canvas().grid(row=0, column=0, sticky="nsew")
-        self._output_frame.grid_columnconfigure(0, weight=1)
-
         self._fps = 20.0
         self.after(int(1000.0 / self._fps), self._main_loop)
 
@@ -129,10 +127,11 @@ class App(ctk.CTk):
         Creates the view to configure the OCR captures
         """
 
-        # Callbacks for operations
+        # Menu and add/delete buttons row
         def __add_capture():
             self._selected_capture = self._captures.add_capture()
             self._update_capture_options()
+            self._captures.update_layout()
 
         def __rename_capture():
             dialog = ctk.CTkInputDialog(text="New capture name:", title="Renaming")
@@ -147,34 +146,8 @@ class App(ctk.CTk):
             self._captures.remove_capture(self._selected_capture.name)
             self._selected_capture = self._captures.get_first()
             self._update_capture_options()
+            self._captures.update_layout()
 
-        def __update_rect_area(*_):
-            try:
-                self._selected_capture.set_area(
-                    int(self._rect_xmin_entry.get_value()),
-                    int(self._rect_ymin_entry.get_value()),
-                    int(self._rect_xmax_entry.get_value()),
-                    int(self._rect_ymax_entry.get_value()),
-                )
-            except ValueError:
-                return
-
-        # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-        self.toplevel_window = None
-
-        def __select_react_area_cb(xmin: int, ymin: int, xmax: int, ymax: int):
-            self._selected_capture.set_area(xmin, ymin, xmax, ymax)
-            self._update_capture_options()
-
-        def __select_rect_area():
-            if self.toplevel_window is None or not self.toplevel_window.winfo_exists():
-                self.toplevel_window = RectangleSelectionWindow(self)  # create window if its None or destroyed
-                self.toplevel_window.attach_cb(__select_react_area_cb)
-            else:
-                self.toplevel_window.focus()  # if window exists focus it
-        # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
-        # Menu and add/delete buttons row
         self._captures_menu = ctk.CTkOptionMenu(
             self._captures_view,
             dynamic_resizing=False,
@@ -195,6 +168,33 @@ class App(ctk.CTk):
         )
 
         # Rectangle settings row
+        def __update_rect_area(*_):
+            try:
+                self._selected_capture.set_area(
+                    int(self._rect_xmin_entry.get_value()),
+                    int(self._rect_ymin_entry.get_value()),
+                    int(self._rect_xmax_entry.get_value()),
+                    int(self._rect_ymax_entry.get_value()),
+                )
+            except ValueError:
+                return
+
+        def __select_react_area_cb(xmin: int, ymin: int, xmax: int, ymax: int):
+            self._selected_capture.set_area(xmin, ymin, xmax, ymax)
+            self._update_capture_options()
+
+        def __select_rect_area():
+            if (
+                self._rect_selec_window is None
+                or not self._rect_selec_window.winfo_exists()
+            ):
+                self._rect_selec_window = RectangleSelectionWindow(
+                    self
+                )  # create window if its None or destroyed
+                self._rect_selec_window.attach_cb(__select_react_area_cb)
+            else:
+                self._rect_selec_window.focus()  # if window exists focus it
+
         self._rect_txt = ctk.CTkLabel(self._captures_view, text="Area")
         self._rect_select_frame = ctk.CTkFrame(self._captures_view)
         self._rect_select_btn = ctk.CTkButton(
@@ -287,20 +287,25 @@ class App(ctk.CTk):
         self._unsharp_amount_entry.grid(padx=(self._pad, self._pad), pady=(0, 0))
 
         # Show options row
+        def __enable_capture_cb():
+            enabled = bool(self._enable_output_cbox.get())
+            self._selected_capture.is_enabled = enabled
+            self._captures.update_layout()
+
         self._show_capture_frame = ctk.CTkFrame(self._captures_view)
-        self._show_output_entry = ctk.CTkCheckBox(
-            self._show_capture_frame, text="Show output"
+        self._enable_output_cbox = ctk.CTkCheckBox(
+            self._show_capture_frame, text="Enable output", command=__enable_capture_cb
         )
         self._show_graph_entry = ctk.CTkCheckBox(
             self._show_capture_frame, text="Show graph"
         )
 
         self._show_capture_frame.grid(row=4, column=0, columnspan=4)
-        self._show_output_entry.grid(row=0, column=0)
+        self._enable_output_cbox.grid(row=0, column=0)
         self._show_graph_entry.grid(row=0, column=1)
 
         self._show_capture_frame.grid(padx=(0, 0), pady=(2 * self._pad, 0))
-        self._show_output_entry.grid(padx=(self._pad, self._pad), pady=(0, 0))
+        self._enable_output_cbox.grid(padx=(self._pad, self._pad), pady=(0, 0))
         self._show_graph_entry.grid(padx=(self._pad, self._pad), pady=(0, 0))
 
     def _create_output_view(self):
@@ -346,36 +351,46 @@ class App(ctk.CTk):
         """
         t0 = time()
 
+        def __schedule_next_loop():
+            next_wait_time = int(1000.0 / self._fps - (time() - t0) * 1000)
+            next_wait_time = max(10, next_wait_time)  # minimum interface refresh time
+            self.after(next_wait_time, self._main_loop)
+
         # Capture the screen
         # screen_img = ImageGrab.grab()
         # screen_img = np.asarray(screen_img)
 
         monitor = self._sct.monitors[1]
-        screen_img = self._sct.grab((
-            monitor["left"],
-            monitor["top"],
-            monitor["left"] + monitor["width"],
-            monitor["top"] + monitor["height"],
-        ))
+        try:
+            screen_img = self._sct.grab(
+                (
+                    monitor["left"],
+                    monitor["top"],
+                    monitor["left"] + monitor["width"],
+                    monitor["top"] + monitor["height"],
+                )
+            )
+        except mss.exception.ScreenShotError as e:
+            __schedule_next_loop()
+            return
+
         screen_img = Image.frombytes(
             "RGB", screen_img.size, screen_img.bgra, "raw", "BGRX"
         )
         screen_img = np.array(screen_img)[:, :, :3]
 
         # TESTSETESTSETEST
-        capture_img = self._selected_capture.slice_area(screen_img)
-        self._test_img.update(capture_img)
+        # capture_img = self._selected_capture.slice_area(screen_img)
+        # self._test_img.update(capture_img)
 
         # Run OCR on all active captures
         # TODO
 
         # Update displayed captures
-        # TODO
+        self._captures.update(screen_img)
 
         # Schedule the next loop iteration
-        next_wait_time = int(1000.0 / self._fps - (time() - t0) * 1000)
-        next_wait_time = max(10, next_wait_time)  # minimum interface refresh time
-        self.after(next_wait_time, self._main_loop)
+        __schedule_next_loop()
 
     def _create_output_frame(self):
         """
@@ -427,6 +442,11 @@ class App(ctk.CTk):
         update_entry_text(self._rect_ymin_entry, self._selected_capture.y_min)
         update_entry_text(self._rect_ymax_entry, self._selected_capture.y_max)
         self._selected_capture.toggle_edit(True)
+
+        if self._selected_capture.is_enabled:
+            self._enable_output_cbox.select()
+        else:
+            self._enable_output_cbox.deselect()
 
 
 if __name__ == "__main__":

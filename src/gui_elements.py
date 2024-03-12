@@ -127,7 +127,8 @@ class TkImage2:
         if self._canvas_img is not None:
             self._canvas.delete(self._canvas_img)
 
-        self._img = ImageTk.PhotoImage(Image.fromarray(img))
+        size = (self._canvas.winfo_width(), self._canvas.winfo_height())
+        self._img = ImageTk.PhotoImage(Image.fromarray(img).resize(size))
         self._canvas_img = self._canvas.create_image(0, 0, image=self._img, anchor="nw")
 
     def get_tk_canvas(self) -> tk.Canvas:

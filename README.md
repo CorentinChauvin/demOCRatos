@@ -14,3 +14,4 @@ pip install -r requirements.txt
 - https://github.com/tesseract-ocr/tesseract
 - https://github.com/madmaze/pytesseract
 - https://github.com/opencv/opencv-python
+- https://github.com/tomschimansky/customtkinter
