@@ -3,6 +3,7 @@ Class storing configuration data about a capture
 """
 
 from src.gui_elements import TkImage2
+from src.ocr import OcrEngine
 import customtkinter as ctk
 import numpy as np
 
@@ -25,6 +26,8 @@ class Capture:
 
         self.is_enabled = True  # whether to compute its output and display it
         self.output_img = TkImage2(img_root)  # displayed output image
+
+        self._ocr_engine = OcrEngine()
 
     def set_area(self, x_min: int, y_min: int, x_max: int, y_max: int):
         """
@@ -51,7 +54,9 @@ class Capture:
             return None
 
         img = self.slice_area(screen_img)
-        self.output_img.update(img)
+        output, processed_img = self._ocr_engine.process(img)
+
+        self.output_img.update(processed_img)
 
         return 0.0
 
