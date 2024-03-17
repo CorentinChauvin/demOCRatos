@@ -3,7 +3,7 @@ Class storing configuration data about a capture
 """
 
 from src.gui_elements import TkImage2
-from src.ocr import OcrEngine
+from src.ocr import BaseOcrEngine
 import customtkinter as ctk
 import numpy as np
 
@@ -25,9 +25,10 @@ class Capture:
         self.set_area(0, 0, 0, 0)  # default values
 
         self.is_enabled = True  # whether to compute its output and display it
-        self.output_img = TkImage2(img_root)  # displayed output image
+        self._output_img = TkImage2(img_root)  # displayed output image
+        self._output_txt = ctk.CTkLabel(img_root, text="-")
 
-        self._ocr_engine = OcrEngine()
+        self._ocr_engine = BaseOcrEngine()
 
     def set_area(self, x_min: int, y_min: int, x_max: int, y_max: int):
         """
@@ -38,6 +39,13 @@ class Capture:
             self.y_min = y_min
             self.x_max = x_max
             self.y_max = y_max
+
+    def display(self, column_idx: int):
+        """
+        Adds the output image and text to the root widget
+        """
+        self._output_img.get_tk_canvas().grid(row=0, column=column_idx, sticky="nsew")
+        self._output_txt.grid(row=1, column=column_idx, sticky="nsew")
 
     def update(self, screen_img: np.ndarray) -> float | None:
         """
@@ -56,7 +64,8 @@ class Capture:
         img = self.slice_area(screen_img)
         output, processed_img = self._ocr_engine.process(img)
 
-        self.output_img.update(processed_img)
+        self._output_img.update(processed_img)
+        self._output_txt.configure(text=f"{self.name}: {output}")
 
         return 0.0
 
@@ -84,6 +93,7 @@ class Captures:
     """
     Manages all captures
     """
+
     def __init__(self, root: ctk.CTkBaseClass):
         self._captures: list[Capture] = []
         self._root = root
@@ -156,7 +166,7 @@ class Captures:
 
         for capture in self._captures:
             if capture.is_enabled:
-                capture.output_img.get_tk_canvas().grid(row=0, column=k, sticky="nsew")
+                capture.display(k)
                 k += 1
 
     def update(self, screen_img: np.ndarray):

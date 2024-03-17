@@ -10,12 +10,26 @@ import numpy as np
 from typing import Tuple
 
 
-class OcrEngine:
+class BaseOcrEngine:
     """
-    TODO
+    Base class for an engine extracting numbers from an image
     """
+    class PreProcessConfig:
+        upscale_ratio: float = (
+            1.0  # Amount used to resize the input image (>1 for upscale)
+        )
+        unsharp_kernel_size: int = 5  # Kernel size for the unsharp filter
+        unsharp_sigma: float = 1.0  # Gaussian filter std for the unsharp filter
+        unsharp_amount: float = 1.0  # Unsharpening ratio
+
     def __init__(self):
-        pass
+        self._config = self.PreProcessConfig()
+
+    def set_parameters(self, config: PreProcessConfig):
+        """
+        Sets the configuration for the OCR process
+        """
+        self._config = config
 
     def process(self, raw_img: np.ndarray) -> Tuple[str, np.ndarray]:
         """
@@ -29,8 +43,6 @@ class OcrEngine:
         """
         img = self._preprocess_img(raw_img)
         raw_output = self._ocr(img)
-
-        print(raw_output)
 
         return raw_output, img
 
@@ -48,33 +60,51 @@ class OcrEngine:
         img = raw_img
 
         shape = np.shape(img)
+        new_shape = (
+            int(shape[1] * self._config.upscale_ratio),
+            int(shape[0] * self._config.upscale_ratio),
+        )
         img = cv2.resize(
-            img, (shape[1] * 2, shape[0] * 2), interpolation=cv2.INTER_LINEAR
-        )  # TODO: the factor should be a parameter
+            img, new_shape, interpolation=cv2.INTER_LINEAR
+        )
 
-        img = self._unsharp_mask(img, kernel_size=(5, 5), amount=2, sigma=1)
+        img = self._unsharp_mask(img)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        img = cv2.threshold(
-            img, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
-        )[1]
+        img = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
 
         return img
 
-    def _unsharp_mask(self, img, kernel_size=(5, 5), sigma=1.0, amount=1.0, threshold=0):
+    def _unsharp_mask(self, img: MatLike) -> MatLike:
         """
         Returns a sharpened version of the image, using an unsharp mask
         """
-        blurred = cv2.GaussianBlur(img, kernel_size, sigma)
-        sharpened = float(amount + 1) * img - float(amount) * blurred
+        amount = float(self._config.unsharp_amount)
+
+        blurred = cv2.GaussianBlur(
+            img, (self._config.unsharp_kernel_size,) * 2, self._config.unsharp_sigma
+        )
+        sharpened = (1.0 + amount) * img - amount * blurred
         sharpened = np.maximum(sharpened, np.zeros(sharpened.shape))
         sharpened = np.minimum(sharpened, 255 * np.ones(sharpened.shape))
         sharpened = sharpened.round().astype(np.uint8)
 
-        if threshold > 0:
-            low_contrast_mask = np.absolute(img - blurred) < threshold
-            np.copyto(sharpened, img, where=low_contrast_mask)
-
         return sharpened
+
+    def _ocr(self, img: MatLike) -> str:
+        """
+        Reads the portion of image, and returns the raw output
+
+        Has to be implemented for a specic OCR method
+        """
+        return ""
+
+
+class TesseractOcrEngine(BaseOcrEngine):
+    """
+    Uses Tesseract to extract digits from an image
+    """
+    def __init__(self):
+        BaseOcrEngine.__init__(self)
 
     def _ocr(self, img: MatLike) -> str:
         """

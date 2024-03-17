@@ -260,7 +260,11 @@ class App(ctk.CTk):
         self._max_entry.grid(padx=(self._pad, 0), pady=(0, 0))
 
         # Unsharp mask row
-        self._unsharp_frame = ctk.CTkFrame(self._captures_view)
+        self._unsharp_outer_frame = ctk.CTkFrame(self._captures_view)
+        self._unsharp_frame = ctk.CTkFrame(self._unsharp_outer_frame, border_width=2)
+        self._unsharp_title = ctk.CTkLabel(
+            self._unsharp_outer_frame, text=" Pre-processing ", anchor="nw", height=0
+        )
         self._unsharp_kernel_label = ctk.CTkLabel(
             self._unsharp_frame, text="Unsharp kernel"
         )
@@ -270,7 +274,8 @@ class App(ctk.CTk):
         self._unsharp_amount_label = ctk.CTkLabel(self._unsharp_frame, text="Amount")
         self._unsharp_amount_entry = ctk.CTkEntry(self._unsharp_frame, width=50)
 
-        self._unsharp_frame.grid(row=3, column=0, columnspan=4, sticky="we")
+        self._unsharp_outer_frame.grid(row=3, column=0, columnspan=4, sticky="we")
+        self._unsharp_frame.grid(row=0, column=0, columnspan=4, sticky="we")
         self._unsharp_kernel_label.grid(row=0, column=0)
         self._unsharp_kernel_entry.grid(row=0, column=1)
         self._unsharp_sigma_label.grid(row=0, column=2)
@@ -278,8 +283,12 @@ class App(ctk.CTk):
         self._unsharp_amount_label.grid(row=0, column=4)
         self._unsharp_amount_entry.grid(row=0, column=5)
 
+        self._unsharp_outer_frame.grid(padx=(0, 0), pady=(self._pad, 0))
+        self._unsharp_title.place(x=10, y=0)
         self._unsharp_frame.grid(padx=(0, 0), pady=(self._pad, 0))
-        self._unsharp_kernel_label.grid(padx=(self._pad, 0), pady=(0, 0))
+        self._unsharp_kernel_label.grid(
+            padx=(self._pad, 0), pady=(self._pad, self._pad)
+        )
         self._unsharp_kernel_entry.grid(padx=(self._pad, self._pad), pady=(0, 0))
         self._unsharp_sigma_label.grid(padx=(self._pad, 0), pady=(0, 0))
         self._unsharp_sigma_entry.grid(padx=(self._pad, self._pad), pady=(0, 0))
@@ -326,16 +335,26 @@ class App(ctk.CTk):
         self._ocr_settings_menu = ctk.CTkOptionMenu(
             self._settings_view, values=["Tesseract"]
         )
+        self._appearance_txt = ctk.CTkLabel(self._settings_view, text="Appearance")
+        self._appearance_menu = ctk.CTkOptionMenu(
+            self._settings_view,
+            values=["System", "Light", "Dark"],
+            command=lambda mode: ctk.set_appearance_mode(mode),
+        )
 
         self._fps_settings_txt.grid(row=0, column=0)
         self._fps_settings_menu.grid(row=0, column=1)
         self._ocr_settings_txt.grid(row=1, column=0)
         self._ocr_settings_menu.grid(row=1, column=1)
+        self._appearance_txt.grid(row=2, column=0)
+        self._appearance_menu.grid(row=2, column=1)
 
         self._fps_settings_txt.grid(padx=(self._pad, 0), pady=(self._pad, 0))
         self._fps_settings_menu.grid(padx=(self._pad, 0), pady=(self._pad, 0))
         self._ocr_settings_txt.grid(padx=(self._pad, self._pad), pady=(self._pad, 0))
-        self._ocr_settings_menu.grid(padx=(self._pad, self._pad), pady=(self._pad, 0))
+        self._ocr_settings_menu.grid(padx=(self._pad, 0), pady=(self._pad, 0))
+        self._appearance_txt.grid(padx=(self._pad, 0), pady=(self._pad, 0))
+        self._appearance_menu.grid(padx=(self._pad, 0), pady=(self._pad, 0))
 
     def _create_logs_view(self):
         """
@@ -432,15 +451,15 @@ class App(ctk.CTk):
         self._captures_menu.configure(values=self._captures.get_names())
         self._captures_menu.set(self._selected_capture.name)
 
-        def update_entry_text(entry: ctk.CTkEntry, text):
+        def __update_entry_text(entry: ctk.CTkEntry, text):
             entry.delete(0, tk.END)
             entry.insert(0, text)
 
         self._selected_capture.toggle_edit(False)
-        update_entry_text(self._rect_xmin_entry, self._selected_capture.x_min)
-        update_entry_text(self._rect_xmax_entry, self._selected_capture.x_max)
-        update_entry_text(self._rect_ymin_entry, self._selected_capture.y_min)
-        update_entry_text(self._rect_ymax_entry, self._selected_capture.y_max)
+        __update_entry_text(self._rect_xmin_entry, self._selected_capture.x_min)
+        __update_entry_text(self._rect_xmax_entry, self._selected_capture.x_max)
+        __update_entry_text(self._rect_ymin_entry, self._selected_capture.y_min)
+        __update_entry_text(self._rect_ymax_entry, self._selected_capture.y_max)
         self._selected_capture.toggle_edit(True)
 
         if self._selected_capture.is_enabled:
