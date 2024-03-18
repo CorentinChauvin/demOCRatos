@@ -3,7 +3,7 @@ Class storing configuration data about a capture
 """
 
 from src.gui_elements import TkImage2
-from src.ocr import BaseOcrEngine
+from src.ocr import BaseOcrEngine, TesseractOcrEngine
 import customtkinter as ctk
 import numpy as np
 
@@ -28,7 +28,7 @@ class Capture:
         self._output_img = TkImage2(img_root)  # displayed output image
         self._output_txt = ctk.CTkLabel(img_root, text="-")
 
-        self._ocr_engine = BaseOcrEngine()
+        self._ocr_engine = TesseractOcrEngine()
 
     def set_area(self, x_min: int, y_min: int, x_max: int, y_max: int):
         """
@@ -87,6 +87,18 @@ class Capture:
         Can be used to temporarily disable the influence of any callback
         """
         self._can_edit = can_edit
+
+    def set_pre_process_config(self, config: BaseOcrEngine.PreProcessConfig):
+        """
+        Updates the configuration for the image pre-processing
+        """
+        self._ocr_engine.set_pre_process_config(config)
+
+    def get_pre_process_config(self) -> BaseOcrEngine.PreProcessConfig:
+        """
+        Returns the configuration for the OCR image pre-processing
+        """
+        return self._ocr_engine.get_pre_process_config()
 
 
 class Captures:

@@ -2,6 +2,7 @@
 TODO
 """
 
+from src.ocr import BaseOcrEngine
 from src.capture import Captures
 from src.gui_elements import Entry, RectangleSelectionWindow
 import customtkinter as ctk
@@ -9,7 +10,9 @@ import tkinter as tk
 import mss
 from PIL import Image
 import numpy as np
+from copy import deepcopy
 from time import time
+from typing import Callable, Type
 import sys
 
 
@@ -259,41 +262,15 @@ class App(ctk.CTk):
         self._max_label.grid(padx=(2 * self._pad, 0), pady=(0, 0))
         self._max_entry.grid(padx=(self._pad, 0), pady=(0, 0))
 
-        # Unsharp mask row
-        self._unsharp_outer_frame = ctk.CTkFrame(self._captures_view)
-        self._unsharp_frame = ctk.CTkFrame(self._unsharp_outer_frame, border_width=2)
-        self._unsharp_title = ctk.CTkLabel(
-            self._unsharp_outer_frame, text=" Pre-processing ", anchor="nw", height=0
-        )
-        self._unsharp_kernel_label = ctk.CTkLabel(
-            self._unsharp_frame, text="Unsharp kernel"
-        )
-        self._unsharp_kernel_entry = ctk.CTkEntry(self._unsharp_frame, width=50)
-        self._unsharp_sigma_label = ctk.CTkLabel(self._unsharp_frame, text="Sigma")
-        self._unsharp_sigma_entry = ctk.CTkEntry(self._unsharp_frame, width=50)
-        self._unsharp_amount_label = ctk.CTkLabel(self._unsharp_frame, text="Amount")
-        self._unsharp_amount_entry = ctk.CTkEntry(self._unsharp_frame, width=50)
+        # Pre processing configuration
+        self._pre_process_config_frame = PreProcessingConfigFrame(self._pad, self._captures_view)
+        self._pre_process_config_frame.grid(row=3, column=0, columnspan=4, sticky="we")
+        self._pre_process_config_frame.grid(padx=(0, 0), pady=(self._pad, 0))
 
-        self._unsharp_outer_frame.grid(row=3, column=0, columnspan=4, sticky="we")
-        self._unsharp_frame.grid(row=0, column=0, columnspan=4, sticky="we")
-        self._unsharp_kernel_label.grid(row=0, column=0)
-        self._unsharp_kernel_entry.grid(row=0, column=1)
-        self._unsharp_sigma_label.grid(row=0, column=2)
-        self._unsharp_sigma_entry.grid(row=0, column=3)
-        self._unsharp_amount_label.grid(row=0, column=4)
-        self._unsharp_amount_entry.grid(row=0, column=5)
+        def __pre_process_config_cb(config: BaseOcrEngine.PreProcessConfig):
+            self._selected_capture.set_pre_process_config(config)
 
-        self._unsharp_outer_frame.grid(padx=(0, 0), pady=(self._pad, 0))
-        self._unsharp_title.place(x=10, y=0)
-        self._unsharp_frame.grid(padx=(0, 0), pady=(self._pad, 0))
-        self._unsharp_kernel_label.grid(
-            padx=(self._pad, 0), pady=(self._pad, self._pad)
-        )
-        self._unsharp_kernel_entry.grid(padx=(self._pad, self._pad), pady=(0, 0))
-        self._unsharp_sigma_label.grid(padx=(self._pad, 0), pady=(0, 0))
-        self._unsharp_sigma_entry.grid(padx=(self._pad, self._pad), pady=(0, 0))
-        self._unsharp_amount_label.grid(padx=(self._pad, 0), pady=(0, 0))
-        self._unsharp_amount_entry.grid(padx=(self._pad, self._pad), pady=(0, 0))
+        self._pre_process_config_frame.attach_update_cb(__pre_process_config_cb)
 
         # Show options row
         def __enable_capture_cb():
@@ -462,10 +439,122 @@ class App(ctk.CTk):
         __update_entry_text(self._rect_ymax_entry, self._selected_capture.y_max)
         self._selected_capture.toggle_edit(True)
 
+        self._pre_process_config_frame.update_elements(
+            self._selected_capture.get_pre_process_config()
+        )
+
         if self._selected_capture.is_enabled:
             self._enable_output_cbox.select()
         else:
             self._enable_output_cbox.deselect()
+
+
+class PreProcessingConfigFrame(ctk.CTkFrame):
+    """
+    Tkinter frame for image pre-processing settings
+    """
+
+    def __init__(self, padding: int, *args, **kwargs):
+        ctk.CTkFrame.__init__(self, *args, **kwargs)
+        self._pad = padding
+        self._config = BaseOcrEngine.PreProcessConfig()
+        self._callback = None  # Called when an element is updated
+
+        # Adding all widgets
+        self._pre_process_frame = ctk.CTkFrame(self, border_width=2)
+        self._pre_process_title = ctk.CTkLabel(
+            self, text=" Pre-processing ", anchor="nw", height=0
+        )
+        self._upscale_ratio_label = ctk.CTkLabel(
+            self._pre_process_frame, text="Upscaling ratio"
+        )
+        self._upscale_ratio_entry = Entry(
+            self._pre_process_frame, width=50, command=self._input_cb
+        )
+        self._unsharp_kernel_label = ctk.CTkLabel(
+            self._pre_process_frame, text="Unsharp kernel"
+        )
+        self._unsharp_kernel_entry = Entry(
+            self._pre_process_frame, width=50, command=self._input_cb
+        )
+        self._unsharp_sigma_label = ctk.CTkLabel(self._pre_process_frame, text="Sigma")
+        self._unsharp_sigma_entry = Entry(
+            self._pre_process_frame, width=50, command=self._input_cb
+        )
+        self._unsharp_amount_label = ctk.CTkLabel(self._pre_process_frame, text="Amount")
+        self._unsharp_amount_entry = Entry(
+            self._pre_process_frame, width=50, command=self._input_cb
+        )
+
+        # Placing elements in the frame
+        self._pre_process_frame.grid(row=0, column=0, columnspan=4, sticky="we")
+        self._pre_process_title.place(x=10, y=0)
+        self._upscale_ratio_label.grid(row=0, column=0)
+        self._upscale_ratio_entry.grid(row=0, column=1)
+        self._unsharp_kernel_label.grid(row=1, column=0)
+        self._unsharp_kernel_entry.grid(row=1, column=1)
+        self._unsharp_sigma_label.grid(row=1, column=2)
+        self._unsharp_sigma_entry.grid(row=1, column=3)
+        self._unsharp_amount_label.grid(row=1, column=4)
+        self._unsharp_amount_entry.grid(row=1, column=5)
+
+        # Settings margin and padding
+        self._pre_process_frame.grid(padx=(0, 0), pady=(self._pad, 0))
+        self._upscale_ratio_label.grid(
+            padx=(self._pad, 0), pady=(self._pad, self._pad)
+        )
+        self._upscale_ratio_entry.grid(padx=(self._pad, self._pad), pady=(0, 0))
+        self._unsharp_kernel_label.grid(padx=(self._pad, 0), pady=(0, self._pad))
+        self._unsharp_kernel_entry.grid(padx=(self._pad, self._pad), pady=(0, 0))
+        self._unsharp_sigma_label.grid(padx=(self._pad, 0), pady=(0, 0))
+        self._unsharp_sigma_entry.grid(padx=(self._pad, self._pad), pady=(0, 0))
+        self._unsharp_amount_label.grid(padx=(self._pad, 0), pady=(0, 0))
+        self._unsharp_amount_entry.grid(padx=(self._pad, self._pad), pady=(0, 0))
+
+        # Map between widgets and config parameters, and their type
+        self._fields: list[tuple[Type, Entry, str]] = [
+            (float, self._upscale_ratio_entry, "upscale_ratio"),
+            (int, self._unsharp_kernel_entry, "unsharp_kernel_size"),
+            (float, self._unsharp_sigma_entry, "unsharp_sigma"),
+            (float, self._unsharp_amount_entry, "unsharp_amount"),
+        ]
+
+    def attach_update_cb(
+        self, callback: Callable[[BaseOcrEngine.PreProcessConfig], None]
+    ):
+        """
+        Configures a callback function that will be called each time elements
+        in the frame are updated
+
+        The callback should have the following signature:
+            `callback(pre_processing_config: BaseOcrEngine.PreProcessConfig) -> None`
+        """
+        self._callback = callback
+
+    def update_elements(self, config: BaseOcrEngine.PreProcessConfig):
+        """
+        Updates the elements of the frame
+        """
+        self._config = deepcopy(config)
+
+        for _, entry, key in self._fields:
+            entry.set_value(getattr(self._config, key))
+
+    def _input_cb(self, *_):
+        """
+        Called when an input field has been updated
+        """
+        assert self._callback is not None
+
+        for t, entry, key in self._fields:
+            try:
+                value = t(entry.get_value())
+            except ValueError:
+                continue
+
+            setattr(self._config, key, value)
+
+        self._callback(self._config)
 
 
 if __name__ == "__main__":

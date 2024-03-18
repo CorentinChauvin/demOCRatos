@@ -69,6 +69,12 @@ class Entry(ctk.CTkEntry):
         """
         return self.variable.get()
 
+    def set_value(self, value):
+        """
+        Updates the displayed value, doesn't trigger the callback
+        """
+        self.variable.set(str(value))
+
 
 class TkImage:
     """

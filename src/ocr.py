@@ -7,6 +7,7 @@ import pytesseract
 from cv2.typing import MatLike
 import cv2
 import numpy as np
+from copy import deepcopy
 from typing import Tuple
 
 
@@ -25,11 +26,27 @@ class BaseOcrEngine:
     def __init__(self):
         self._config = self.PreProcessConfig()
 
-    def set_parameters(self, config: PreProcessConfig):
+    def set_pre_process_config(self, config: PreProcessConfig):
         """
-        Sets the configuration for the OCR process
+        Sets the configuration for the image pre-processing
         """
-        self._config = config
+        config = deepcopy(config)
+        config.unsharp_kernel_size = abs(config.unsharp_kernel_size)
+        config.upscale_ratio = abs(config.upscale_ratio)
+
+        if config.unsharp_kernel_size % 2 == 0:
+            config.unsharp_kernel_size += 1
+
+        if config.upscale_ratio < 0.01:
+            config.upscale_ratio = self._config.upscale_ratio
+
+        self._config = deepcopy(config)
+
+    def get_pre_process_config(self) -> PreProcessConfig:
+        """
+        Returns the configuration for the image pre-processing
+        """
+        return self._config
 
     def process(self, raw_img: np.ndarray) -> Tuple[str, np.ndarray]:
         """
@@ -64,6 +81,7 @@ class BaseOcrEngine:
             int(shape[1] * self._config.upscale_ratio),
             int(shape[0] * self._config.upscale_ratio),
         )
+        print(self._config.upscale_ratio)
         img = cv2.resize(
             img, new_shape, interpolation=cv2.INTER_LINEAR
         )
@@ -96,7 +114,7 @@ class BaseOcrEngine:
 
         Has to be implemented for a specic OCR method
         """
-        return ""
+        return "???"
 
 
 class TesseractOcrEngine(BaseOcrEngine):
