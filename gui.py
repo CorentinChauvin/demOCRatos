@@ -3,6 +3,7 @@ TODO
 """
 
 from src.ocr import BaseOcrEngine
+from src.data_recorder import DataRecorder
 from src.capture import Captures
 from src.gui_elements import Entry, RectangleSelectionWindow
 import customtkinter as ctk
@@ -58,16 +59,20 @@ class App(ctk.CTk):
         self._selected_capture.set_area(0, 0, 420, 420)
         self._sct = mss.mss()  # used to capture the screen
 
+        self._data_recorder = DataRecorder()
+
         # Configure the grid layout
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=0)
 
         # Set default values and statuses
         self._stop_btn.configure(state="disabled")  # TODO: change state dynamically
+
         self._status_txt.configure(text="10:03 (12 FPS)")
         self._status_txt.configure(
-            fg_color="green"
+            fg_color="green", text_color="white"
         )  # TODO: change the colour depending on the status
+
         self._fps_settings_menu.set("1")
         self._ocr_settings_menu.set("Tesseract")
 
@@ -84,18 +89,22 @@ class App(ctk.CTk):
         """
         self._header_frame = ctk.CTkFrame(self, corner_radius=10)
 
+        def __start_btn_cb():
+            self._data_recorder.toggle_recording(True)
+            self._start_btn.configure(state="disabled")
+            self._stop_btn.configure(state="normal")
+
+        def __stop_btn_cb():
+            self._data_recorder.toggle_recording(False)
+            self._start_btn.configure(state="normal")
+            self._stop_btn.configure(state="disabled")
+
         self._start_btn = ctk.CTkButton(
-            master=self._header_frame,
-            height=40,
-            text="Start",
+            master=self._header_frame, height=40, text="Start", command=__start_btn_cb
         )
         self._stop_btn = ctk.CTkButton(
-            master=self._header_frame,
-            height=40,
-            text="Stop",
+            master=self._header_frame, height=40, text="Stop", command=__stop_btn_cb
         )
-        # self._stop_btn.configure(state="disabled")  # TODO: add logic to disable btn
-        # self._stop_btn.configure(fg_color="gray")
         self._status_txt = ctk.CTkLabel(self._header_frame, justify="right")
 
         # Grid placement of all children
@@ -263,7 +272,9 @@ class App(ctk.CTk):
         self._max_entry.grid(padx=(self._pad, 0), pady=(0, 0))
 
         # Pre processing configuration
-        self._pre_process_config_frame = PreProcessingConfigFrame(self._pad, self._captures_view)
+        self._pre_process_config_frame = PreProcessingConfigFrame(
+            self._pad, self._captures_view
+        )
         self._pre_process_config_frame.grid(row=3, column=0, columnspan=4, sticky="we")
         self._pre_process_config_frame.grid(padx=(0, 0), pady=(self._pad, 0))
 
@@ -366,7 +377,7 @@ class App(ctk.CTk):
                     monitor["top"] + monitor["height"],
                 )
             )
-        except mss.exception.ScreenShotError as e:
+        except mss.exception.ScreenShotError:
             __schedule_next_loop()
             return
 
@@ -375,15 +386,20 @@ class App(ctk.CTk):
         )
         screen_img = np.array(screen_img)[:, :, :3]
 
-        # TESTSETESTSETEST
-        # capture_img = self._selected_capture.slice_area(screen_img)
-        # self._test_img.update(capture_img)
+        # Run OCR on all active captures and update displayed output
+        output = self._captures.update(screen_img)
+        self._data_recorder.record(output)
 
-        # Run OCR on all active captures
-        # TODO
+        # Update status text
+        fps = self._data_recorder.get_average_fps()
 
-        # Update displayed captures
-        self._captures.update(screen_img)
+        if self._data_recorder.get_is_recording():
+            record_t = self._data_recorder.get_recording_time()
+            self._status_txt.configure(
+                text=f"{int(record_t // 60):02d}:{int(record_t % 60):02d} ({fps:.1f} fps)"
+            )
+        else:
+            self._status_txt.configure(text=f"--:-- ({fps:.1f} fps)")
 
         # Schedule the next loop iteration
         __schedule_next_loop()
@@ -393,15 +409,6 @@ class App(ctk.CTk):
         Creates the frame to display all capture outputs
         """
         self._output_frame = ctk.CTkFrame(self, corner_radius=10)
-
-        # self._test_label = ctk.CTkLabel(self._output_frame, text="BLETR")
-        # self._test_label.grid(row=0, column=0)
-
-        # from src.graphics import create_the_button
-        # self._the_button = create_the_button(self._output_frame)
-
-        # self._the_button.grid(row=0, column=0)
-        # self._the_button.pack(side=tk.BOTTOM)
 
     def _set_padding(self, frame: ctk.CTkBaseClass, padding: int):
         """
@@ -481,7 +488,9 @@ class PreProcessingConfigFrame(ctk.CTkFrame):
         self._unsharp_sigma_entry = Entry(
             self._pre_process_frame, width=50, command=self._input_cb
         )
-        self._unsharp_amount_label = ctk.CTkLabel(self._pre_process_frame, text="Amount")
+        self._unsharp_amount_label = ctk.CTkLabel(
+            self._pre_process_frame, text="Amount"
+        )
         self._unsharp_amount_entry = Entry(
             self._pre_process_frame, width=50, command=self._input_cb
         )
@@ -500,9 +509,7 @@ class PreProcessingConfigFrame(ctk.CTkFrame):
 
         # Settings margin and padding
         self._pre_process_frame.grid(padx=(0, 0), pady=(self._pad, 0))
-        self._upscale_ratio_label.grid(
-            padx=(self._pad, 0), pady=(self._pad, self._pad)
-        )
+        self._upscale_ratio_label.grid(padx=(self._pad, 0), pady=(self._pad, self._pad))
         self._upscale_ratio_entry.grid(padx=(self._pad, self._pad), pady=(0, 0))
         self._unsharp_kernel_label.grid(padx=(self._pad, 0), pady=(0, self._pad))
         self._unsharp_kernel_entry.grid(padx=(self._pad, self._pad), pady=(0, 0))

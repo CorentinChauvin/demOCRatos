@@ -187,9 +187,15 @@ class Captures:
 
         Args:
             - screen_img: Full screen image
+        Returns
+            Dictionary of captured data (key: data name)
         """
+        output = {}
+
         for capture in self._captures:
             if not capture.is_enabled:
                 continue
 
-            capture.update(screen_img)
+            output[capture.name] = capture.update(screen_img)
+
+        return output
