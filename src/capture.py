@@ -67,7 +67,12 @@ class Capture:
         self._output_img.update(processed_img)
         self._output_txt.configure(text=f"{self.name}: {output}")
 
-        return 0.0
+        try:
+            output = float(output)
+        except ValueError:
+            return None
+
+        return output
 
     def slice_area(self, array: np.ndarray) -> np.ndarray:
         """

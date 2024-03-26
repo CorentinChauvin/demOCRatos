@@ -60,6 +60,7 @@ class App(ctk.CTk):
         self._sct = mss.mss()  # used to capture the screen
 
         self._data_recorder = DataRecorder()
+        self._data_recorder.add_field(self._selected_capture.name)
 
         # Configure the grid layout
         self.grid_columnconfigure(0, weight=1)
@@ -142,21 +143,28 @@ class App(ctk.CTk):
         # Menu and add/delete buttons row
         def __add_capture():
             self._selected_capture = self._captures.add_capture()
+            self._data_recorder.add_field(self._selected_capture.name)
             self._update_capture_options()
             self._captures.update_layout()
 
         def __rename_capture():
+            old_name = self._selected_capture.name
             dialog = ctk.CTkInputDialog(text="New capture name:", title="Renaming")
             name = dialog.get_input()
 
             if name is not None and self._captures.rename(self._selected_capture, name):
+                self._data_recorder.rename_field(old_name, name)
                 self._update_capture_options()
             else:
                 print("Invalid name!")
 
         def __remove_capture():
+            self._data_recorder.delete_field(self._selected_capture.name)
             self._captures.remove_capture(self._selected_capture.name)
             self._selected_capture = self._captures.get_first()
+            self._data_recorder.add_field(
+                self._selected_capture.name
+            )  # in case a new one was created
             self._update_capture_options()
             self._captures.update_layout()
 
@@ -294,7 +302,7 @@ class App(ctk.CTk):
             self._show_capture_frame, text="Enable output", command=__enable_capture_cb
         )
         self._show_graph_entry = ctk.CTkCheckBox(
-            self._show_capture_frame, text="Show graph"
+            self._show_capture_frame, text="Show on graph"
         )
 
         self._show_capture_frame.grid(row=4, column=0, columnspan=4)

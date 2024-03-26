@@ -81,7 +81,6 @@ class BaseOcrEngine:
             int(shape[1] * self._config.upscale_ratio),
             int(shape[0] * self._config.upscale_ratio),
         )
-        print(self._config.upscale_ratio)
         img = cv2.resize(
             img, new_shape, interpolation=cv2.INTER_LINEAR
         )

@@ -3,6 +3,8 @@
 """
 
 import numpy as np
+import csv
+from datetime import datetime
 from time import time
 
 
@@ -18,6 +20,8 @@ class DataRecorder:
         self._start_time = None  # time at which the recording started
         self._last_times = []  # last times the recorder was called
 
+        self._fps_avg_len = 10  # how many points used to average the fps output
+
     def add_field(self, name: str):
         """
         Adds a data field to record, given its name
@@ -28,7 +32,7 @@ class DataRecorder:
             )
             return
 
-        self._data[name] = [[]]
+        self._data[name] = [[t, None] for t in self._last_times]
 
     def rename_field(self, old_name: str, new_name: str):
         """
@@ -68,6 +72,8 @@ class DataRecorder:
             self._data = {key: [] for key in self._data}
             self._start_time = time()
             self._last_times = []
+        else:
+            self._save_data()
 
         self._is_recording = is_recording
 
@@ -104,7 +110,33 @@ class DataRecorder:
         Returns the average update frequency of the last data points
         It works even when not in recording mode.
         """
-        dt = np.average(np.diff(self._last_times[-10:]))
+        if len(self._last_times) <= 1:
+            return 0.0
+
+        n = min(self._fps_avg_len, len(self._last_times))
+        dt = np.average(np.diff(self._last_times[-n:]))
         return 1.0 / dt
 
+    def _save_data(self, file_path: str = ""):
+        """
+        Saves the data in a CSV file
+        """
+        if file_path == "":
+            date_str = datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
+            file_name = f"data_{date_str}.csv"
+            file_path = f"/tmp/{file_name}"
 
+        with open(file_path, "w") as f:
+            csv_writer = csv.writer(
+                f, delimiter=",", quotechar='"', quoting=csv.QUOTE_ALL
+            )
+
+            csv_writer.writerow(["t"] + list(self._data.keys()))
+
+            for k in range(len(self._last_times)):
+                row = [self._last_times[k]] + [
+                    self._data[key][k][1] for key in self._data
+                ]
+                csv_writer.writerow(row)
+
+        print(f"[Recorder] Saved data at {file_path}")
