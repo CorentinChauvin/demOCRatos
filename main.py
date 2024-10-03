@@ -96,7 +96,7 @@ def ocr(image: MatLike) -> str:
 # =========================================================
 # POST PROCESSING
 #
-def filter(raw_string: str, min_value: float, max_value: float) -> float | None:
+def filter(raw_string: str, min_value: float, max_value: float): # -> float | None:
     """
     Tries to convert a string into a float, and returns only if the resulting value
     is within some given bounds.
