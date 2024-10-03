@@ -16,6 +16,7 @@ class BaseOcrEngine:
     Base class for an engine extracting numbers from an image
     """
     class PreProcessConfig:
+        invert_img: bool = False  # Whether to invert the image before the preprocessing
         upscale_ratio: float = (
             1.0  # Amount used to resize the input image (>1 for upscale)
         )
@@ -75,6 +76,9 @@ class BaseOcrEngine:
         """
         # img = cv2.cvtColor(raw_img, cv2.COLOR_GRAY2BGR)
         img = raw_img
+
+        if self._config.invert_img:
+            img = cv2.bitwise_not(img)
 
         shape = np.shape(img)
         new_shape = (

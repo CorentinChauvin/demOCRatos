@@ -3,3 +3,4 @@ opencv-python
 customtkinter
 mss
 matplotlib
+numpy==1.26.4

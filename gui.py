@@ -74,14 +74,14 @@ class App(ctk.CTk):
             fg_color="green", text_color="white"
         )  # TODO: change the colour depending on the status
 
-        self._fps_settings_menu.set("1")
+        self._fps_settings_menu.set("10")
         self._ocr_settings_menu.set("Tesseract")
 
         self._update_capture_options()
         self._captures.update_layout()
 
         # Configure callbacks
-        self._fps = 20.0
+        self._fps = 10.0
         self.after(int(1000.0 / self._fps), self._main_loop)
 
     def _create_header_frame(self):
@@ -323,9 +323,14 @@ class App(ctk.CTk):
         """
         Creates the view to configure general settings
         """
+        def __update_fps(fps: str):
+            self._fps = float(fps)
+
         self._fps_settings_txt = ctk.CTkLabel(self._settings_view, text="FPS")
         self._fps_settings_menu = ctk.CTkOptionMenu(
-            self._settings_view, values=["1/10", "1/5", "1", "5", "10", "25"]
+            self._settings_view,
+            values=["0.1", "0.2", "1", "5", "10", "25"],
+            command=__update_fps
         )
         self._ocr_settings_txt = ctk.CTkLabel(self._settings_view, text="OCR method")
         self._ocr_settings_menu = ctk.CTkOptionMenu(
@@ -474,6 +479,7 @@ class PreProcessingConfigFrame(ctk.CTkFrame):
         self._pad = padding
         self._config = BaseOcrEngine.PreProcessConfig()
         self._callback = None  # Called when an element is updated
+        self._updating = False  # whether the frame is currently being updated (disables the callback)
 
         # Adding all widgets
         self._pre_process_frame = ctk.CTkFrame(self, border_width=2)
@@ -502,6 +508,9 @@ class PreProcessingConfigFrame(ctk.CTkFrame):
         self._unsharp_amount_entry = Entry(
             self._pre_process_frame, width=50, command=self._input_cb
         )
+        self._invert_img_entry = ctk.CTkCheckBox(
+            self._pre_process_frame, text="Invert image", command=self._input_cb
+        )
 
         # Placing elements in the frame
         self._pre_process_frame.grid(row=0, column=0, columnspan=4, sticky="we")
@@ -514,6 +523,7 @@ class PreProcessingConfigFrame(ctk.CTkFrame):
         self._unsharp_sigma_entry.grid(row=1, column=3)
         self._unsharp_amount_label.grid(row=1, column=4)
         self._unsharp_amount_entry.grid(row=1, column=5)
+        self._invert_img_entry.grid(row=2, column=0)
 
         # Settings margin and padding
         self._pre_process_frame.grid(padx=(0, 0), pady=(self._pad, 0))
@@ -525,13 +535,15 @@ class PreProcessingConfigFrame(ctk.CTkFrame):
         self._unsharp_sigma_entry.grid(padx=(self._pad, self._pad), pady=(0, 0))
         self._unsharp_amount_label.grid(padx=(self._pad, 0), pady=(0, 0))
         self._unsharp_amount_entry.grid(padx=(self._pad, self._pad), pady=(0, 0))
+        self._invert_img_entry.grid(padx=(2* self._pad, self._pad), pady=(0, self._pad))
 
         # Map between widgets and config parameters, and their type
-        self._fields: list[tuple[Type, Entry, str]] = [
+        self._fields: list[tuple[Type, Entry | ctk.CTkCheckBox, str]] = [
             (float, self._upscale_ratio_entry, "upscale_ratio"),
             (int, self._unsharp_kernel_entry, "unsharp_kernel_size"),
             (float, self._unsharp_sigma_entry, "unsharp_sigma"),
             (float, self._unsharp_amount_entry, "unsharp_amount"),
+            (bool, self._invert_img_entry, "invert_img"),
         ]
 
     def attach_update_cb(
@@ -550,10 +562,20 @@ class PreProcessingConfigFrame(ctk.CTkFrame):
         """
         Updates the elements of the frame
         """
+        self._updating = True
         self._config = deepcopy(config)
 
         for _, entry, key in self._fields:
-            entry.set_value(getattr(self._config, key))
+            if type(entry) == Entry:
+                entry.set_value(getattr(config, key))
+            elif type(entry) == ctk.CTkCheckBox:
+                if getattr(config, key):
+                    entry.select()
+                else:
+                    entry.deselect()
+
+        self._updating = False
+
 
     def _input_cb(self, *_):
         """
@@ -561,13 +583,20 @@ class PreProcessingConfigFrame(ctk.CTkFrame):
         """
         assert self._callback is not None
 
-        for t, entry, key in self._fields:
-            try:
-                value = t(entry.get_value())
-            except ValueError:
-                continue
+        if not self._updating:
+            for t, entry, key in self._fields:
+                try:
+                    if type(entry) == Entry:
+                        value = t(entry.get_value())
+                    elif type(entry) == ctk.CTkCheckBox:
+                        value = bool(entry.get())
+                    else:
+                        raise ValueError
 
-            setattr(self._config, key, value)
+                except ValueError:
+                    continue
+
+                setattr(self._config, key, value)
 
         self._callback(self._config)
 
