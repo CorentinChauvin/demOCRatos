@@ -3,7 +3,7 @@ Class storing configuration data about a capture
 """
 
 from src.gui_elements import TkImage2
-from src.ocr import BaseOcrEngine, TesseractOcrEngine
+from src.ocr import BaseOcrEngine, TesseractOcrEngine, EasyOcrEngine, OcrMethod
 import customtkinter as ctk
 import numpy as np
 
@@ -12,7 +12,7 @@ class Capture:
     """
     Manages a capture's configuration and data
     """
-    def __init__(self, name: str, img_root: ctk.CTkBaseClass):
+    def __init__(self, name: str, img_root: ctk.CTkBaseClass, ocr_method: OcrMethod):
         """
         Sets initial name and default values
 
@@ -28,7 +28,7 @@ class Capture:
         self._output_img = TkImage2(img_root)  # displayed output image
         self._output_txt = ctk.CTkLabel(img_root, text="-")
 
-        self._ocr_engine = TesseractOcrEngine()
+        self.set_ocr_method(ocr_method)
 
     def set_area(self, x_min: int, y_min: int, x_max: int, y_max: int):
         """
@@ -105,6 +105,23 @@ class Capture:
         """
         return self._ocr_engine.get_pre_process_config()
 
+    def set_ocr_method(self, method: OcrMethod):
+        """
+        Sets the method used to perform OCR
+        """
+        if hasattr(self, "_ocr_engine"):
+            pre_config = self._ocr_engine.get_pre_process_config()
+        else:
+            pre_config = None
+
+        if method == OcrMethod.TESSERACT:
+            self._ocr_engine = TesseractOcrEngine()
+        elif method == OcrMethod.EASY_OCR:
+            self._ocr_engine = EasyOcrEngine()
+
+        if pre_config is not None:
+            self._ocr_engine.set_pre_process_config(pre_config)
+
 
 class Captures:
     """
@@ -112,6 +129,7 @@ class Captures:
     """
 
     def __init__(self, root: ctk.CTkBaseClass):
+        self._ocr_method = OcrMethod.TESSERACT
         self._captures: list[Capture] = []
         self._root = root
         self.add_capture()
@@ -120,7 +138,9 @@ class Captures:
         """
         Creates a new capture with default name, and returns it
         """
-        self._captures.append(Capture(f"New capture {len(self._captures)}", self._root))
+        self._captures.append(
+            Capture(f"New capture {len(self._captures)}", self._root, self._ocr_method)
+        )
         return self._captures[-1]
 
     def remove_capture(self, key: str):
@@ -204,3 +224,12 @@ class Captures:
             output[capture.name] = capture.update(screen_img)
 
         return output
+
+    def set_ocr_method(self, method: OcrMethod):
+        """
+        Sets the method used to perform OCR
+        """
+        self._ocr_method = method
+
+        for capture in self._captures:
+            capture.set_ocr_method(method)

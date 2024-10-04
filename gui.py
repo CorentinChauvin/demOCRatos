@@ -2,7 +2,7 @@
 TODO
 """
 
-from src.ocr import BaseOcrEngine
+from src.ocr import BaseOcrEngine, OcrMethod
 from src.data_recorder import DataRecorder
 from src.capture import Captures
 from src.gui_elements import Entry, RectangleSelectionWindow
@@ -326,6 +326,12 @@ class App(ctk.CTk):
         def __update_fps(fps: str):
             self._fps = float(fps)
 
+        def __update_ocr(ocr: str):
+            if ocr == "Tesseract":
+                self._captures.set_ocr_method(OcrMethod.TESSERACT)
+            elif ocr == "EasyOcr":
+                self._captures.set_ocr_method(OcrMethod.EASY_OCR)
+
         self._fps_settings_txt = ctk.CTkLabel(self._settings_view, text="FPS")
         self._fps_settings_menu = ctk.CTkOptionMenu(
             self._settings_view,
@@ -334,7 +340,7 @@ class App(ctk.CTk):
         )
         self._ocr_settings_txt = ctk.CTkLabel(self._settings_view, text="OCR method")
         self._ocr_settings_menu = ctk.CTkOptionMenu(
-            self._settings_view, values=["Tesseract"]
+            self._settings_view, values=["Tesseract", "EasyOcr"], command=__update_ocr
         )
         self._appearance_txt = ctk.CTkLabel(self._settings_view, text="Appearance")
         self._appearance_menu = ctk.CTkOptionMenu(

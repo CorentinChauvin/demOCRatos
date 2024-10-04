@@ -1,4 +1,4 @@
-pytesseract
+tesserocr
 opencv-python
 customtkinter
 mss
