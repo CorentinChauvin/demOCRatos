@@ -25,6 +25,7 @@ class Capture:
         self.set_area(0, 0, 0, 0)  # default values
 
         self.is_enabled = True  # whether to compute its output and display it
+        self.show_preview = True  # whether to draw a preview of the captured area
         self._output_img = TkImage2(img_root)  # displayed output image
         self._output_txt = ctk.CTkLabel(img_root, text="-")
 
@@ -62,6 +63,11 @@ class Capture:
             return None
 
         img = self.slice_area(screen_img)
+        shape = np.shape(img)
+
+        if shape[0] == 0 or shape[1] == 0:
+            return None
+
         output, processed_img = self._ocr_engine.process(img)
 
         self._output_img.update(processed_img)
@@ -202,7 +208,7 @@ class Captures:
         k = 0
 
         for capture in self._captures:
-            if capture.is_enabled:
+            if capture.is_enabled and capture.show_preview:
                 capture.display(k)
                 k += 1
 

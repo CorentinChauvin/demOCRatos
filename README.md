@@ -42,3 +42,10 @@ python gui.py
 - https://github.com/tesseract-ocr/tesseract
 - https://github.com/sirfz/tesserocr
 - https://github.com/JaidedAI/EasyOCR
+
+## TODO
+
+- [ ] Loading and processing videos
+- [ ] Saving/loading configuration
+- [ ] Real time graphing
+- [ ] Make it easy to add new OCR methods, and documenting it

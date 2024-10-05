@@ -82,7 +82,6 @@ class BaseOcrEngine:
             - Sharpens the image (unsharp mask)
             - Thresholds the image (otsu)
         """
-        # img = cv2.cvtColor(raw_img, cv2.COLOR_GRAY2BGR)
         img = raw_img
 
         if self._config.invert_img:
@@ -160,13 +159,15 @@ class EasyOcrEngine(BaseOcrEngine):
     Uses EasyOcr to extract digits from an image
     """
 
-    import easyocr
-
-    _reader = easyocr.Reader(["en"])
+    _reader = None
 
     def __init__(self):
         BaseOcrEngine.__init__(self)
         self._img_path = "/tmp/ocr.jpg"
+
+        if EasyOcrEngine._reader is None:
+            import easyocr
+            EasyOcrEngine._reader = easyocr.Reader(["en"])
 
     def _ocr(self, img: MatLike) -> str:
         """

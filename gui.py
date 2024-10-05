@@ -297,27 +297,34 @@ class App(ctk.CTk):
             self._selected_capture.is_enabled = enabled
             self._captures.update_layout()
 
+        def __enable_preview_cb():
+            enabled = bool(self._show_preview_cbox.get())
+            self._selected_capture.show_preview = enabled
+            self._captures.update_layout()
+
         self._show_capture_frame = ctk.CTkFrame(self._captures_view)
         self._enable_output_cbox = ctk.CTkCheckBox(
             self._show_capture_frame, text="Enable output", command=__enable_capture_cb
         )
-        self._show_graph_entry = ctk.CTkCheckBox(
-            self._show_capture_frame, text="Show on graph"
+        self._show_preview_cbox = ctk.CTkCheckBox(
+            self._show_capture_frame, text="Show preview", command=__enable_preview_cb
         )
 
         self._show_capture_frame.grid(row=4, column=0, columnspan=4)
         self._enable_output_cbox.grid(row=0, column=0)
-        self._show_graph_entry.grid(row=0, column=1)
+        self._show_preview_cbox.grid(row=0, column=1)
 
         self._show_capture_frame.grid(padx=(0, 0), pady=(2 * self._pad, 0))
         self._enable_output_cbox.grid(padx=(self._pad, self._pad), pady=(0, 0))
-        self._show_graph_entry.grid(padx=(self._pad, self._pad), pady=(0, 0))
+        self._show_preview_cbox.grid(padx=(self._pad, self._pad), pady=(0, 0))
 
     def _create_output_view(self):
         """
-        TODO
+        Creates the view showing the captured outputs
         """
-        pass
+        self._output_tbox = ctk.CTkTextbox(self._output_view, state="normal")
+        self._output_tbox.grid(row=0, column=0, sticky="nesw")
+        self._output_view.grid_columnconfigure(0, weight=1)
 
     def _create_settings_view(self):
         """
@@ -409,6 +416,10 @@ class App(ctk.CTk):
         output = self._captures.update(screen_img)
         self._data_recorder.record(output)
 
+        self._output_tbox.configure(state="normal")
+        self._output_tbox.insert("0.0", str(output) + "\n")
+        self._output_tbox.configure(state="disabled")
+
         # Update status text
         fps = self._data_recorder.get_average_fps()
 
@@ -473,6 +484,11 @@ class App(ctk.CTk):
             self._enable_output_cbox.select()
         else:
             self._enable_output_cbox.deselect()
+
+        if self._selected_capture.show_preview:
+            self._show_preview_cbox.select()
+        else:
+            self._show_preview_cbox.deselect()
 
 
 class PreProcessingConfigFrame(ctk.CTkFrame):
