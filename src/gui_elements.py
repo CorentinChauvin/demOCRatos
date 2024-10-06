@@ -5,7 +5,7 @@ Helper functions and classes for the TK app
 from __future__ import annotations
 import customtkinter as ctk
 import tkinter as tk
-from PIL import Image, ImageGrab, ImageTk
+from PIL import Image, ImageTk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure

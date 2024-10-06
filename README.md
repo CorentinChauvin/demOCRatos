@@ -1,4 +1,4 @@
-# DemOCRactos - OCR for the people
+# DemOCRatos - OCR for the people
 
 ![version](https://img.shields.io/badge/Version-0.1-yellow)
 ![ubuntu 22.04](https://img.shields.io/badge/Ubuntu%2022.04-working-green)
@@ -10,7 +10,14 @@
 
 Attempting to read a portion of the screen and plot its data real time.
 
-> Blazingly slow, but it kinda works
+> Blazingly slow, but it just works
+
+## Features
+
+- Real time recognitions of numbers of the screen.
+- Offline number recognition in a video file.
+- Works on easily configurable areas, as many as one wants.
+- Easy to integrate new OCR methods (see below TODO)
 
 ## Install
 
@@ -53,8 +60,9 @@ python gui.py
 
 ## TODO
 
-- [ ] Loading and processing videos
-- [ ] Saving/loading configuration
-- [ ] Real time graphing
+- [x] Loading and processing videos
+- [x] Saving/loading configuration
+- [ ] Multi threading, for less blazing slowness
 - [ ] Make it easy to add new OCR methods, and documenting it
 - [ ] Logging not only in the Python terminal, but also in the logging text box
+- [ ] Real time graphing

@@ -12,6 +12,7 @@ import tkinter as tk
 import mss
 from PIL import Image, ImageGrab, ImageTk
 import numpy as np
+import json
 from enum import Enum
 from copy import deepcopy
 from time import time
@@ -51,14 +52,17 @@ class App(ctk.CTk):
         # Create the frames
         self._pad = 10
         self._create_header_frame()
+        self._create_load_settings_frame()
         self._create_options_frame()
         self._create_output_frame()
 
         self._header_frame.grid(row=0, column=0, sticky="nsew")
-        self._options_frame.grid(row=1, column=0, sticky="nsew")
-        self._output_frame.grid(row=2, column=0, sticky="nsew")
+        self._load_settings_frame.grid(row=1, column=0, sticky="nsew")
+        self._options_frame.grid(row=2, column=0, sticky="nsew")
+        self._output_frame.grid(row=3, column=0, sticky="nsew")
 
         self._header_frame.grid(padx=(self._pad, self._pad), pady=(self._pad, 0))
+        self._load_settings_frame.grid(padx=(self._pad, self._pad), pady=(self._pad, 0))
         self._options_frame.grid(padx=(self._pad, self._pad), pady=(0, self._pad))
         self._output_frame.grid(padx=(self._pad, self._pad), pady=(0, self._pad))
 
@@ -94,6 +98,7 @@ class App(ctk.CTk):
         self._captures.update_layout()
 
         self._input_mode = InputMode.SCREEN
+        self._processing_video = False  # whether currently processing a video
 
         # Configure callbacks
         self._fps = 10.0
@@ -117,14 +122,20 @@ class App(ctk.CTk):
 
         # Real time screen processing view
         def __start_btn_cb():
+            self._options_frame.set("Output")
             self._data_recorder.toggle_recording(True)
             self._start_btn.configure(state="disabled")
             self._stop_btn.configure(state="normal")
 
         def __stop_btn_cb():
-            self._data_recorder.toggle_recording(False)
+            file_path = self._data_recorder.toggle_recording(False)
             self._start_btn.configure(state="normal")
             self._stop_btn.configure(state="disabled")
+
+            self._output_tbox.configure(state="normal")
+            output_str = f"[Recorder] Saved data at {file_path}"
+            self._output_tbox.insert("0.0", output_str + "\n")
+            self._output_tbox.configure(state="disabled")
 
         self._start_btn = ctk.CTkButton(
             master=self._header_screen_view,
@@ -156,10 +167,29 @@ class App(ctk.CTk):
             path = tk.filedialog.askopenfilename()
             self._video_processor.set_video_path(path)
 
+        def __processed_frame_cb(output, progress):
+            output_str = f"[{int(progress[0] / progress[1] * 100)} %][{progress[0]}/{progress[1]}] {output}"
+
+            self._output_tbox.configure(state="normal")
+            self._output_tbox.insert("0.0", output_str + "\n")
+            self._output_tbox.configure(state="disabled")
+            self.update()
+
         def __process_video_cb():
+            if self._processing_video:
+                return
+
+            self._processing_video = True
+            self._options_frame.set("Output")
             self._video_processor.set_captures(self._captures)
             self._video_processor.set_fps(self._fps)
-            self._video_processor.process_video()
+            file_path = self._video_processor.process_video(__processed_frame_cb)
+            self._processing_video = False
+
+            self._output_tbox.configure(state="normal")
+            output_str = f"[Recorder] Saved data at {file_path}"
+            self._output_tbox.insert("0.0", output_str + "\n")
+            self._output_tbox.configure(state="disabled")
 
         self._open_file_btn = ctk.CTkButton(
             master=self._header_video_view,
@@ -179,6 +209,72 @@ class App(ctk.CTk):
 
         self._open_file_btn.grid(padx=(self._pad, 0), pady=(self._pad, self._pad))
         self._process_video_btn.grid(padx=(self._pad, 0), pady=(self._pad, self._pad))
+
+    def _create_load_settings_frame(self):
+        """
+        Creates the frame with load/save settings buttons
+        """
+        self._load_settings_frame = ctk.CTkFrame(self, corner_radius=10)
+
+        def __load_settings_cb():
+            tk.Tk().withdraw()  # keep the root window from appearing
+            path = tk.filedialog.askopenfilename(
+                defaultextension=".json", filetypes=(("JSON", "*.json"), ("All files", "*.*"))
+            )
+
+            if (path == ()):
+                print("WARNING: no file selected, not loading config")
+                return
+
+            with open(path) as file:
+                try:
+                    config = json.load(file)
+                except (UnicodeDecodeError, json.decoder.JSONDecodeError):
+                    print("ERROR: coudn't parse JSON config")
+                    return
+
+            self._captures.load_config(config)
+            self._data_recorder.reset_fields(self._captures.get_names())
+            self._selected_capture = self._captures.get_first()
+            self._update_capture_options()
+            self._captures.update_layout()
+
+        def __save_settings_cb():
+            tk.Tk().withdraw()  # keep the root window from appearing
+            path = tk.filedialog.asksaveasfilename(
+                defaultextension=".json", filetypes=(("JSON", "*.json"), )
+            )
+
+            if (path == ()):
+                print("WARNING: no file selected, not saving config")
+                return
+
+            with open(path, "w") as file:
+                config = self._captures.get_config()
+                json.dump(config, file)
+
+            print(config)
+
+        self._load_settings_btn = ctk.CTkButton(
+            self._load_settings_frame,
+            text="Load settings",
+            width=80,
+            command=__load_settings_cb,
+        )
+        self._save_settings_btn = ctk.CTkButton(
+            self._load_settings_frame,
+            text="Save settings",
+            width=80,
+            command=__save_settings_cb,
+        )
+
+        self._load_settings_btn.grid(row=0, column=0)
+        self._save_settings_btn.grid(row=0, column=1)
+
+        self._load_settings_btn.grid(
+            padx=(2 * self._pad, 0), pady=(self._pad, self._pad)
+        )
+        self._save_settings_btn.grid(padx=(self._pad, 0), pady=(0, 0))
 
     def _create_options_frame(self):
         """
@@ -459,6 +555,10 @@ class App(ctk.CTk):
             next_wait_time = max(10, next_wait_time)  # minimum interface refresh time
             self.after(next_wait_time, self._main_loop)
 
+        if self._processing_video:
+            __schedule_next_loop()
+            return
+
         # Capture the screen
         if self._input_mode == InputMode.SCREEN:
             monitor = self._sct.monitors[1]
@@ -490,9 +590,13 @@ class App(ctk.CTk):
         output = self._captures.update(screen_img)
         self._data_recorder.record(output)
 
-        self._output_tbox.configure(state="normal")
-        self._output_tbox.insert("0.0", str(output) + "\n")
-        self._output_tbox.configure(state="disabled")
+        if (
+            self._input_mode == InputMode.SCREEN
+            and self._data_recorder.get_is_recording()
+        ):
+            self._output_tbox.configure(state="normal")
+            self._output_tbox.insert("0.0", str(output) + "\n")
+            self._output_tbox.configure(state="disabled")
 
         # Update status text
         fps = self._data_recorder.get_average_fps()
@@ -528,8 +632,6 @@ class App(ctk.CTk):
         Args:
             - selected: If provided, will switch the selected capture
         """
-        print("Called with selected = ", selected)
-
         if selected is not None:
             new_capture = self._captures[selected]
 

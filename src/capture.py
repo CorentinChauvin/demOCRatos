@@ -163,6 +163,49 @@ class Captures:
         if len(self._captures) == 0:
             self.add_capture()
 
+    def get_config(self):
+        """
+        Returns a dictionary with configuration for all captures
+        """
+        config = {}
+
+        for capture in self._captures:
+            name = capture.name
+            ocr_conf = capture.get_pre_process_config()
+
+            config[name] = {}
+            config[name]["area"] = [capture.x_min, capture.y_min, capture.x_max, capture.y_max]
+            config[name]["is_enabled"] = capture.is_enabled
+            config[name]["show_preview"] = capture.show_preview
+            config[name]["ocr"] = {}
+
+            for key in dir(ocr_conf):
+                if key[0:2] != "__":
+                    config[name]["ocr"][key] = getattr(ocr_conf, key)
+
+        return config
+
+    def load_config(self, config):
+        """
+        Resets all captures with given configuration provided as a dictionary
+        """
+        self._captures = []
+
+        for name in config:
+            capture = self.add_capture()
+            capture.name = name
+            capture.set_area(*config[name]["area"])
+            capture.show_preview = config[name]["show_preview"]
+            ocr = BaseOcrEngine.PreProcessConfig()
+
+            for key in config[name]["ocr"]:
+                setattr(ocr, key, config[name]["ocr"][key])
+
+            capture.set_pre_process_config(ocr)
+
+        if len(self._captures) == 0:
+            self.add_capture()
+
     def __getitem__(self, key: str) -> None | Capture:
         """
         Accesses a capture by its name

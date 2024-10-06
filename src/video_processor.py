@@ -6,6 +6,7 @@ from src.data_recorder import DataRecorder
 from cv2.typing import MatLike
 from src.capture import Captures
 import cv2
+from typing import Callable
 
 
 class VideoProcessor:
@@ -59,13 +60,22 @@ class VideoProcessor:
         """
         self._captures = captures
 
-    def process_video(self):
+    def process_video(self, frame_cb: Callable) -> str:
         """
         Processes the video file
+
+        Args:
+            - frame_cb: Will be called at each processed frame
+        Returns:
+            Path of the saved CSV file
+
+        frame_cb(output, progress):
+            - output: dictionary of detected values for each capture
+            - progress: [current_frame, total_frame_count]
         """
         if self._video_path is None:
             print("[VideoProcessor] No valid video selected")
-            return
+            return ""
 
         assert self._captures is not None
 
@@ -93,6 +103,9 @@ class VideoProcessor:
                 f"[{frame_idx}/{frame_count}][{int(frame_idx / frame_count * 100)} %] {output}"
             )
             self._data_recorder.record(output)
+            frame_cb(output, [frame_idx, frame_count])
 
-        self._data_recorder.toggle_recording(False)
+        path = self._data_recorder.toggle_recording(False)
         cap.release()
+
+        return path

@@ -6,6 +6,7 @@ import numpy as np
 import csv
 from datetime import datetime
 from time import time
+from typing import List
 
 
 class DataRecorder:
@@ -64,18 +65,35 @@ class DataRecorder:
 
         self._data.pop(name)
 
-    def toggle_recording(self, is_recording: bool):
+    def reset_fields(self, names: List[str]):
+        """
+        Resets all the field names, and stop any recording
+        """
+        self._data = {}
+        self._is_recording = False
+
+        for name in names:
+            self.add_field(name)
+
+    def toggle_recording(self, is_recording: bool) -> str:
         """
         Starts or stops the data recording
+
+        Returns
+            Name of the saved file, if stopping the recording (otherwise "")
         """
+        path = ""
+
         if is_recording:
             self._data = {key: [] for key in self._data}
             self._start_time = time()
             self._last_times = []
         else:
-            self._save_data()
+            path = self._save_data()
 
         self._is_recording = is_recording
+
+        return path
 
     def record(self, new_data: dict):
         """
@@ -117,9 +135,9 @@ class DataRecorder:
         dt = np.average(np.diff(self._last_times[-n:]))
         return 1.0 / dt
 
-    def _save_data(self, file_path: str = ""):
+    def _save_data(self, file_path: str = "") -> str:
         """
-        Saves the data in a CSV file
+        Saves the data in a CSV file and returns the name of the file
         """
         if file_path == "":
             date_str = datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
@@ -140,3 +158,5 @@ class DataRecorder:
                 csv_writer.writerow(row)
 
         print(f"[Recorder] Saved data at {file_path}")
+
+        return file_path
