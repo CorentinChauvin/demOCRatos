@@ -1,5 +1,6 @@
 tesserocr
 opencv-python
+opencv-python-headless
 customtkinter
 mss
 matplotlib

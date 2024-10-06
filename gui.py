@@ -4,13 +4,15 @@ TODO
 
 from src.ocr import BaseOcrEngine, OcrMethod
 from src.data_recorder import DataRecorder
+from src.video_processor import VideoProcessor
 from src.capture import Captures
 from src.gui_elements import Entry, RectangleSelectionWindow
 import customtkinter as ctk
 import tkinter as tk
 import mss
-from PIL import Image
+from PIL import Image, ImageGrab, ImageTk
 import numpy as np
+from enum import Enum
 from copy import deepcopy
 from time import time
 from typing import Callable, Type
@@ -21,17 +23,26 @@ ctk.set_appearance_mode("System")  # Modes: "System" (standard), "Dark", "Light"
 ctk.set_default_color_theme("blue")  # Themes: "blue" (standard), "green", "dark-blue
 
 
+class InputMode(Enum):
+    """
+    What input image is being processed
+    """
+    SCREEN = 1  # real time processing of the screen
+    VIDEO = 2  # offline processing of a video file
+
+
 class App(ctk.CTk):
     """
-    TODO
+    Main entry point for the app
     """
 
     def __init__(self):
         super().__init__()
 
         # Configure window
-        self.title("Title TODO")
+        self.title("DemOCRatos - OCR for the people")
         # self.geometry(f"{1100}x{580}")
+        self.iconphoto(True, ImageTk.PhotoImage(file="assets/logo_low.png"))
         self.bind("<Escape>", lambda _: sys.exit())  # FIXME: for development only
         self.bind("q", lambda _: sys.exit())  # FIXME: for development only
 
@@ -56,11 +67,13 @@ class App(ctk.CTk):
         self._selected_capture = self._captures.get_first()  # its config is displayed
 
         self._captures.update_layout()
-        self._selected_capture.set_area(0, 0, 420, 420)
+        self._selected_capture.set_area(0, 0, 30, 100)
         self._sct = mss.mss()  # used to capture the screen
 
         self._data_recorder = DataRecorder()
         self._data_recorder.add_field(self._selected_capture.name)
+
+        self._video_processor = VideoProcessor(self._data_recorder)
 
         # Configure the grid layout
         self.grid_columnconfigure(0, weight=1)
@@ -80,6 +93,8 @@ class App(ctk.CTk):
         self._update_capture_options()
         self._captures.update_layout()
 
+        self._input_mode = InputMode.SCREEN
+
         # Configure callbacks
         self._fps = 10.0
         self.after(int(1000.0 / self._fps), self._main_loop)
@@ -88,8 +103,19 @@ class App(ctk.CTk):
         """
         Creating the heading frame with main controls
         """
-        self._header_frame = ctk.CTkFrame(self, corner_radius=10)
+        def __header_cb():
+            if self._header_frame.get() == "Screen process":
+                self._input_mode = InputMode.SCREEN
+            else:
+                self._input_mode = InputMode.VIDEO
 
+        self._header_frame = ctk.CTkTabview(
+            self, corner_radius=10, anchor="nw", height=0, command=__header_cb
+        )
+        self._header_screen_view = self._header_frame.add("Screen process")
+        self._header_video_view = self._header_frame.add("Video file")
+
+        # Real time screen processing view
         def __start_btn_cb():
             self._data_recorder.toggle_recording(True)
             self._start_btn.configure(state="disabled")
@@ -101,24 +127,58 @@ class App(ctk.CTk):
             self._stop_btn.configure(state="disabled")
 
         self._start_btn = ctk.CTkButton(
-            master=self._header_frame, height=40, text="Start", command=__start_btn_cb
+            master=self._header_screen_view,
+            height=40,
+            text="Start",
+            command=__start_btn_cb,
         )
         self._stop_btn = ctk.CTkButton(
-            master=self._header_frame, height=40, text="Stop", command=__stop_btn_cb
+            master=self._header_screen_view,
+            height=40,
+            text="Stop",
+            command=__stop_btn_cb,
         )
-        self._status_txt = ctk.CTkLabel(self._header_frame, justify="right")
+        self._status_txt = ctk.CTkLabel(self._header_screen_view, justify="right")
 
-        # Grid placement of all children
         self._start_btn.grid(row=0, column=0)
         self._stop_btn.grid(row=0, column=1)
         self._status_txt.grid(row=0, column=2, sticky="e")
-        self._header_frame.grid_columnconfigure((0, 1), weight=0)
-        self._header_frame.grid_columnconfigure(2, weight=1)
+        self._header_screen_view.grid_columnconfigure((0, 1), weight=0)
+        self._header_screen_view.grid_columnconfigure(2, weight=1)
 
-        # Padding of all children
         self._start_btn.grid(padx=(self._pad, 0), pady=(self._pad, self._pad))
         self._stop_btn.grid(padx=(self._pad, 0), pady=(self._pad, self._pad))
         self._status_txt.grid(padx=(self._pad, self._pad), pady=(self._pad, self._pad))
+
+        # Offline video file processing
+        def __open_file_cb():
+            tk.Tk().withdraw()  # keep the root window from appearing
+            path = tk.filedialog.askopenfilename()
+            self._video_processor.set_video_path(path)
+
+        def __process_video_cb():
+            self._video_processor.set_captures(self._captures)
+            self._video_processor.set_fps(self._fps)
+            self._video_processor.process_video()
+
+        self._open_file_btn = ctk.CTkButton(
+            master=self._header_video_view,
+            height=40,
+            text="Open file",
+            command=__open_file_cb,
+        )
+        self._process_video_btn = ctk.CTkButton(
+            master=self._header_video_view,
+            height=40,
+            text="Process video",
+            command=__process_video_cb,
+        )
+
+        self._open_file_btn.grid(row=0, column=0)
+        self._process_video_btn.grid(row=0, column=1)
+
+        self._open_file_btn.grid(padx=(self._pad, 0), pady=(self._pad, self._pad))
+        self._process_video_btn.grid(padx=(self._pad, 0), pady=(self._pad, self._pad))
 
     def _create_options_frame(self):
         """
@@ -208,8 +268,17 @@ class App(ctk.CTk):
                 self._rect_selec_window is None
                 or not self._rect_selec_window.winfo_exists()
             ):
+                if self._input_mode == InputMode.SCREEN:
+                    screen_img = ImageGrab.grab()
+                else:
+                    screen_img = self._video_processor.get_preview_frame()
+
+                    if screen_img is None:
+                        print("No valid video selected")
+                        return
+
                 self._rect_selec_window = RectangleSelectionWindow(
-                    self
+                    screen_img, self
                 )  # create window if its None or destroyed
                 self._rect_selec_window.attach_cb(__select_react_area_cb)
             else:
@@ -330,6 +399,7 @@ class App(ctk.CTk):
         """
         Creates the view to configure general settings
         """
+
         def __update_fps(fps: str):
             self._fps = float(fps)
 
@@ -343,7 +413,7 @@ class App(ctk.CTk):
         self._fps_settings_menu = ctk.CTkOptionMenu(
             self._settings_view,
             values=["0.1", "0.2", "1", "5", "10", "25"],
-            command=__update_fps
+            command=__update_fps,
         )
         self._ocr_settings_txt = ctk.CTkLabel(self._settings_view, text="OCR method")
         self._ocr_settings_menu = ctk.CTkOptionMenu(
@@ -390,27 +460,31 @@ class App(ctk.CTk):
             self.after(next_wait_time, self._main_loop)
 
         # Capture the screen
-        # screen_img = ImageGrab.grab()
-        # screen_img = np.asarray(screen_img)
-
-        monitor = self._sct.monitors[1]
-        try:
-            screen_img = self._sct.grab(
-                (
-                    monitor["left"],
-                    monitor["top"],
-                    monitor["left"] + monitor["width"],
-                    monitor["top"] + monitor["height"],
+        if self._input_mode == InputMode.SCREEN:
+            monitor = self._sct.monitors[1]
+            try:
+                screen_img = self._sct.grab(
+                    (
+                        monitor["left"],
+                        monitor["top"],
+                        monitor["left"] + monitor["width"],
+                        monitor["top"] + monitor["height"],
+                    )
                 )
-            )
-        except mss.exception.ScreenShotError:
-            __schedule_next_loop()
-            return
+            except mss.exception.ScreenShotError:
+                __schedule_next_loop()
+                return
 
-        screen_img = Image.frombytes(
-            "RGB", screen_img.size, screen_img.bgra, "raw", "BGRX"
-        )
-        screen_img = np.array(screen_img)[:, :, :3]
+            screen_img = Image.frombytes(
+                "RGB", screen_img.size, screen_img.bgra, "raw", "BGRX"
+            )
+            screen_img = np.array(screen_img)[:, :, :3]
+        else:
+            screen_img = self._video_processor.get_preview_frame()
+
+            if screen_img is None:
+                __schedule_next_loop()
+                return
 
         # Run OCR on all active captures and update displayed output
         output = self._captures.update(screen_img)
@@ -557,7 +631,9 @@ class PreProcessingConfigFrame(ctk.CTkFrame):
         self._unsharp_sigma_entry.grid(padx=(self._pad, self._pad), pady=(0, 0))
         self._unsharp_amount_label.grid(padx=(self._pad, 0), pady=(0, 0))
         self._unsharp_amount_entry.grid(padx=(self._pad, self._pad), pady=(0, 0))
-        self._invert_img_entry.grid(padx=(2* self._pad, self._pad), pady=(0, self._pad))
+        self._invert_img_entry.grid(
+            padx=(2 * self._pad, self._pad), pady=(0, self._pad)
+        )
 
         # Map between widgets and config parameters, and their type
         self._fields: list[tuple[Type, Entry | ctk.CTkCheckBox, str]] = [
@@ -597,7 +673,6 @@ class PreProcessingConfigFrame(ctk.CTkFrame):
                     entry.deselect()
 
         self._updating = False
-
 
     def _input_cb(self, *_):
         """

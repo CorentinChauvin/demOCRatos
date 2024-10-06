@@ -149,10 +149,8 @@ class RectangleSelectionWindow(ctk.CTkToplevel):
     Used to select a screen area with the mouse
     """
 
-    def __init__(self, *args, **kwargs):
-        # Grab screenshot of screen before starting window
-        self._screen_img = ImageGrab.grab()
-        self._screen_img = np.asarray(self._screen_img)
+    def __init__(self, screen_img, *args, **kwargs):
+        self._screen_img = np.asarray(screen_img)
 
         # Start new window
         super().__init__(*args, **kwargs)

@@ -1,4 +1,12 @@
-# ocr_screen
+# DemOCRactos - OCR for the people
+
+![version](https://img.shields.io/badge/Version-0.1-yellow)
+![ubuntu 22.04](https://img.shields.io/badge/Ubuntu%2022.04-working-green)
+![license](https://img.shields.io/badge/License-Apache%202.0-blue)
+
+<div align="center">
+    <img src="assets/logo_high.png" width=400 />
+</div>
 
 Attempting to read a portion of the screen and plot its data real time.
 
@@ -49,3 +57,4 @@ python gui.py
 - [ ] Saving/loading configuration
 - [ ] Real time graphing
 - [ ] Make it easy to add new OCR methods, and documenting it
+- [ ] Logging not only in the Python terminal, but also in the logging text box
