@@ -6,6 +6,8 @@ from src.gui_elements import TkImage2
 from src.ocr import BaseOcrEngine, TesseractOcrEngine, EasyOcrEngine, OcrMethod
 import customtkinter as ctk
 import numpy as np
+from concurrent.futures import ThreadPoolExecutor
+from typing import Tuple
 
 
 class Capture:
@@ -48,37 +50,39 @@ class Capture:
         self._output_img.get_tk_canvas().grid(row=0, column=column_idx, sticky="nsew")
         self._output_txt.grid(row=1, column=column_idx, sticky="nsew")
 
-    def update(self, screen_img: np.ndarray) -> float | None:
+    def ocr(self, screen_img: np.ndarray) -> Tuple[str, np.ndarray] | Tuple[None, None]:
         """
         Processes the full screen image and displays its outputs
 
         Args:
             - screen_img: Full screen image
         Returns:
-            - computed output (displayed image on the screen)
+            - [computed output, preprocessed image to preview]
             OR
-            - None if output not enabled
+            - [None, None] if no output
         """
         if not self.is_enabled:
-            return None
+            return None, None
 
         img = self.slice_area(screen_img)
         shape = np.shape(img)
 
         if shape[0] == 0 or shape[1] == 0:
-            return None
+            return None, None
 
         output, processed_img = self._ocr_engine.process(img)
 
-        self._output_img.update(processed_img)
-        self._output_txt.configure(text=f"{self.name}: {output}")
+        return output, processed_img
 
-        try:
-            output = float(output)
-        except ValueError:
-            return None
 
-        return output
+    def update(self, output: str, processed_img: np.ndarray):
+        """
+        Updates the image and text previews on the GUI
+        """
+        if self.show_preview:
+            self._output_img.update(processed_img)
+            self._output_txt.configure(text=f"{self.name}: {output}")
+
 
     def slice_area(self, array: np.ndarray) -> np.ndarray:
         """
@@ -138,6 +142,7 @@ class Captures:
         self._ocr_method = OcrMethod.TESSERACT
         self._captures: list[Capture] = []
         self._root = root
+        self._max_threads = 1
         self.add_capture()
 
     def add_capture(self) -> Capture:
@@ -206,6 +211,12 @@ class Captures:
         if len(self._captures) == 0:
             self.add_capture()
 
+    def set_max_threads(self, max_threads: int | None):
+        """
+        Sets the maximum number of threads used for OCR (None sets no limit)
+        """
+        self._max_threads = max_threads
+
     def __getitem__(self, key: str) -> None | Capture:
         """
         Accesses a capture by its name
@@ -264,15 +275,31 @@ class Captures:
         Returns
             Dictionary of captured data (key: data name)
         """
-        output = {}
+        outputs = {}
+        futures = {}
 
-        for capture in self._captures:
-            if not capture.is_enabled:
-                continue
+        with ThreadPoolExecutor(max_workers=self._max_threads) as executor:
+            for capture in self._captures:
+                if not capture.is_enabled:
+                    continue
 
-            output[capture.name] = capture.update(screen_img)
+                futures[capture.name] = executor.submit(capture.ocr, screen_img)
 
-        return output
+        for name in futures:
+            output, processed_img = futures[name].result()
+
+            if output is not None:
+                self[name].update(output, processed_img)
+
+            if output is not None:
+                try:
+                    output = float(output)
+                except ValueError:
+                    output = None
+
+            outputs[name] = output
+
+        return outputs
 
     def set_ocr_method(self, method: OcrMethod):
         """

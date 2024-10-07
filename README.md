@@ -1,7 +1,7 @@
 # DemOCRatos - OCR for the people
 
 ![version](https://img.shields.io/badge/Version-0.1-yellow)
-![ubuntu 22.04](https://img.shields.io/badge/Ubuntu%2022.04-working-green)
+![ubuntu 22.04](https://img.shields.io/badge/Ubuntu%2022.04-Kinda%20working-green)
 ![license](https://img.shields.io/badge/License-Apache%202.0-blue)
 
 <div align="center">
@@ -10,7 +10,7 @@
 
 Attempting to read a portion of the screen and plot its data real time.
 
-> Blazingly slow, but it just works
+> Blazingly slow, but it kinda works
 
 ## Features
 
@@ -48,6 +48,7 @@ python gui.py
 
 ## Notes
 
+- When processing a video, enabling the preview can induce up to 20% overhead.
 - EasyOCR requires PyTorch and Scipy, so isn't lightweight. The first time the program is started, it will download necessary model weights (stored in `~/.EasyOCR/model`). See more details on the EasyOCR GitHub ([link](https://github.com/JaidedAI/EasyOCR)).
 
 ## Dependencies
@@ -62,7 +63,7 @@ python gui.py
 
 - [x] Loading and processing videos
 - [x] Saving/loading configuration
-- [ ] Multi threading, for less blazing slowness
+- [x] Multi threading, for less blazing slowness
 - [ ] Make it easy to add new OCR methods, and documenting it
 - [ ] Logging not only in the Python terminal, but also in the logging text box
 - [ ] Real time graphing

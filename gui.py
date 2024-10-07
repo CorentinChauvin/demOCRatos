@@ -93,6 +93,7 @@ class App(ctk.CTk):
 
         self._fps_settings_menu.set("10")
         self._ocr_settings_menu.set("Tesseract")
+        self._max_threads_entry.set_value(1)
 
         self._update_capture_options()
         self._captures.update_layout()
@@ -505,6 +506,17 @@ class App(ctk.CTk):
             elif ocr == "EasyOcr":
                 self._captures.set_ocr_method(OcrMethod.EASY_OCR)
 
+        def __set_max_threads(*_):
+            value = self._max_threads_entry.get_value()
+
+            try:
+                value = int(value)
+            except ValueError:
+                return
+
+            value = value if value > 0 else None
+            self._captures.set_max_threads(value)
+
         self._fps_settings_txt = ctk.CTkLabel(self._settings_view, text="FPS")
         self._fps_settings_menu = ctk.CTkOptionMenu(
             self._settings_view,
@@ -514,6 +526,12 @@ class App(ctk.CTk):
         self._ocr_settings_txt = ctk.CTkLabel(self._settings_view, text="OCR method")
         self._ocr_settings_menu = ctk.CTkOptionMenu(
             self._settings_view, values=["Tesseract", "EasyOcr"], command=__update_ocr
+        )
+        self._max_threads_txt = ctk.CTkLabel(
+            self._settings_view, text="Max threads (0 for no limit)"
+        )
+        self._max_threads_entry = Entry(
+            self._settings_view, command=__set_max_threads
         )
         self._appearance_txt = ctk.CTkLabel(self._settings_view, text="Appearance")
         self._appearance_menu = ctk.CTkOptionMenu(
@@ -526,13 +544,17 @@ class App(ctk.CTk):
         self._fps_settings_menu.grid(row=0, column=1)
         self._ocr_settings_txt.grid(row=1, column=0)
         self._ocr_settings_menu.grid(row=1, column=1)
-        self._appearance_txt.grid(row=2, column=0)
-        self._appearance_menu.grid(row=2, column=1)
+        self._max_threads_txt.grid(row=2, column=0)
+        self._max_threads_entry.grid(row=2, column=1)
+        self._appearance_txt.grid(row=3, column=0)
+        self._appearance_menu.grid(row=3, column=1)
 
         self._fps_settings_txt.grid(padx=(self._pad, 0), pady=(self._pad, 0))
         self._fps_settings_menu.grid(padx=(self._pad, 0), pady=(self._pad, 0))
         self._ocr_settings_txt.grid(padx=(self._pad, self._pad), pady=(self._pad, 0))
         self._ocr_settings_menu.grid(padx=(self._pad, 0), pady=(self._pad, 0))
+        self._max_threads_txt.grid(padx=(self._pad, 0), pady=(self._pad, 0))
+        self._max_threads_entry.grid(padx=(self._pad, 0), pady=(self._pad, 0))
         self._appearance_txt.grid(padx=(self._pad, 0), pady=(self._pad, 0))
         self._appearance_menu.grid(padx=(self._pad, 0), pady=(self._pad, 0))
 

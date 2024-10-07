@@ -131,16 +131,17 @@ class TesseractOcrEngine(BaseOcrEngine):
     """
     Uses Tesseract to extract digits from an image
     """
-    import tesserocr
-
-    _api = tesserocr.PyTessBaseAPI(
-        path=os.popen("find /usr/share/tesseract-ocr -type d -name 'tessdata'")
-        .read()
-        .strip()
-    )
 
     def __init__(self):
         BaseOcrEngine.__init__(self)
+
+        import tesserocr
+
+        self._api = tesserocr.PyTessBaseAPI(
+            path=os.popen("find /usr/share/tesseract-ocr -type d -name 'tessdata'")
+            .read()
+            .strip()
+        )
 
     def _ocr(self, img: MatLike) -> str:
         """
@@ -148,8 +149,8 @@ class TesseractOcrEngine(BaseOcrEngine):
         """
         img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         pil_img = Image.fromarray(img_rgb)
-        TesseractOcrEngine._api.SetImage(pil_img)
-        output = TesseractOcrEngine._api.GetUTF8Text()
+        self._api.SetImage(pil_img)
+        output = self._api.GetUTF8Text()
 
         return output.strip()
 
@@ -159,22 +160,19 @@ class EasyOcrEngine(BaseOcrEngine):
     Uses EasyOcr to extract digits from an image
     """
 
-    _reader = None
-
     def __init__(self):
         BaseOcrEngine.__init__(self)
-        self._img_path = "/tmp/ocr.jpg"
 
-        if EasyOcrEngine._reader is None:
-            import easyocr
-            EasyOcrEngine._reader = easyocr.Reader(["en"])
+        import easyocr
+
+        self._reader = easyocr.Reader(["en"])
 
     def _ocr(self, img: MatLike) -> str:
         """
         Reads the portion of image, and returns the raw output
         """
         img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        output = EasyOcrEngine._reader.readtext(img_rgb, detail=0)
+        output = self._reader.readtext(img_rgb, detail=0)
 
         if output == []:
             return ""
