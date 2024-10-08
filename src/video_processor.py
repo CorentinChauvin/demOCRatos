@@ -19,6 +19,7 @@ class VideoProcessor:
         self._captures = None  # captures configuration and processing
         self._preview_frame = None  # preview frame of the video
         self._fps = 1.0  # how many frames per second need to be processed in the video
+        self._stop_processing = False  # whether a request to stop processing was received
 
     def set_video_path(self, video_path: str):
         """
@@ -34,10 +35,6 @@ class VideoProcessor:
             print("[VideoProcessor] ERROR: Couldn't read video")
             cap.release()
             return
-
-        # from matplotlib import pyplot as plt
-        # plt.imshow(self._preview_frame)
-        # plt.show()
 
         self._video_path = video_path
         cap.release()
@@ -81,31 +78,41 @@ class VideoProcessor:
 
         cap = cv2.VideoCapture(self._video_path)
         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        frame_offset = max(1, int(cap.get(cv2.CAP_PROP_FPS) / self._fps))
         frame_idx = 0
+        dt = 1.0 / cap.get(cv2.CAP_PROP_FPS)
+        record_offset_t = 1.0 / self._fps
+        t = 0.0
+        last_t = 0.0
+
         self._data_recorder.toggle_recording(True)
 
-        while cap.isOpened():
+        while cap.isOpened() and not self._stop_processing:
             ret, frame = cap.read()
+            t += dt
             frame_idx += 1
 
             if not ret:
                 break
 
-            if frame_idx % frame_offset != 0:
+            if t - last_t < record_offset_t or frame is None:
                 continue
 
-            if frame is None:
-                continue
-
+            last_t = t
             output = self._captures.update(frame)
             print(
                 f"[{frame_idx}/{frame_count}][{int(frame_idx / frame_count * 100)} %] {output}"
             )
-            self._data_recorder.record(output)
+            self._data_recorder.record(output, t)
             frame_cb(output, [frame_idx, frame_count])
 
         path = self._data_recorder.toggle_recording(False)
+        self._stop_processing = False
         cap.release()
 
         return path
+
+    def stop_processing(self):
+        """
+        Requests the processor to stop any current processing
+        """
+        self._stop_processing = True

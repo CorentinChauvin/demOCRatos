@@ -95,14 +95,18 @@ class DataRecorder:
 
         return path
 
-    def record(self, new_data: dict):
+    def record(self, new_data: dict, t: float | None = None):
         """
-        Records new data for the current time, if currently in recording mode
+        Records new data for a given time, if currently in recording mode
 
         The keys in `new_data` should correspond to data field names.
         If some data fields are missing, they will be recorded as None.
+
+        If t is not given (or None), the current system time is taken
         """
-        t = time()
+        if t is None:
+            t = time()
+
         self._last_times.append(t)
 
         if not self._is_recording:

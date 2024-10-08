@@ -46,6 +46,7 @@ class App(ctk.CTk):
         self.iconphoto(True, ImageTk.PhotoImage(file="assets/logo_low.png"))
         self.bind("<Escape>", lambda _: sys.exit())  # FIXME: for development only
         self.bind("q", lambda _: sys.exit())  # FIXME: for development only
+        self.protocol("WM_DELETE_WINDOW", self._on_closing_cb)
 
         self._rect_selec_window = None  # reference to the window to select the capture zone
 
@@ -104,6 +105,15 @@ class App(ctk.CTk):
         # Configure callbacks
         self._fps = 10.0
         self.after(int(1000.0 / self._fps), self._main_loop)
+
+    def _on_closing_cb(self):
+        """
+        Called when trying to close the application
+        """
+        if tk.messagebox.askokcancel("Quit", "Do you want to quit?"):
+            self._data_recorder.toggle_recording(False)
+            self._video_processor.stop_processing()
+            sys.exit()
 
     def _create_header_frame(self):
         """
@@ -182,15 +192,27 @@ class App(ctk.CTk):
 
             self._processing_video = True
             self._options_frame.set("Output")
+            self._process_video_btn.configure(state="disabled")
+            self._stop_processing_video_btn.configure(state="normal")
             self._video_processor.set_captures(self._captures)
             self._video_processor.set_fps(self._fps)
+
             file_path = self._video_processor.process_video(__processed_frame_cb)
+
             self._processing_video = False
+            self._process_video_btn.configure(state="normal")
+            self._stop_processing_video_btn.configure(state="disabled")
 
             self._output_tbox.configure(state="normal")
             output_str = f"[Recorder] Saved data at {file_path}"
             self._output_tbox.insert("0.0", output_str + "\n")
             self._output_tbox.configure(state="disabled")
+
+        def __stop_processing_video_cb():
+            self._processing_video = False
+            self._process_video_btn.configure(state="normal")
+            self._stop_processing_video_btn.configure(state="disabled")
+            self._video_processor.stop_processing()
 
         self._open_file_btn = ctk.CTkButton(
             master=self._header_video_view,
@@ -204,12 +226,21 @@ class App(ctk.CTk):
             text="Process video",
             command=__process_video_cb,
         )
+        self._stop_processing_video_btn = ctk.CTkButton(
+            master=self._header_video_view,
+            height=40,
+            text="Stop processing",
+            command=__stop_processing_video_cb,
+            state="disabled"
+        )
 
         self._open_file_btn.grid(row=0, column=0)
         self._process_video_btn.grid(row=0, column=1)
+        self._stop_processing_video_btn.grid(row=0, column=2)
 
         self._open_file_btn.grid(padx=(self._pad, 0), pady=(self._pad, self._pad))
         self._process_video_btn.grid(padx=(self._pad, 0), pady=(self._pad, self._pad))
+        self._stop_processing_video_btn.grid(padx=(self._pad, 0), pady=(self._pad, self._pad))
 
     def _create_load_settings_frame(self):
         """
@@ -223,7 +254,7 @@ class App(ctk.CTk):
                 defaultextension=".json", filetypes=(("JSON", "*.json"), ("All files", "*.*"))
             )
 
-            if (path == ()):
+            if path == () or path is None or path == "":
                 print("WARNING: no file selected, not loading config")
                 return
 
@@ -246,7 +277,7 @@ class App(ctk.CTk):
                 defaultextension=".json", filetypes=(("JSON", "*.json"), )
             )
 
-            if (path == ()):
+            if path == () or path is None or path == "":
                 print("WARNING: no file selected, not saving config")
                 return
 
@@ -427,11 +458,37 @@ class App(ctk.CTk):
         self._rect_ymax_entry.grid(padx=(self._pad, 0), pady=(0, 0))
 
         # Min/max row
+        def __set_min_max_values_cb(*_):
+            min_value = self._min_entry.get_value()
+            max_value = self._max_entry.get_value()
+
+            if min_value == "":
+                min_value = None
+            else:
+                try:
+                    min_value = float(self._min_entry.get_value())
+                except ValueError:
+                    return
+
+            if max_value == "":
+                max_value = None
+            else:
+                try:
+                    max_value = float(self._max_entry.get_value())
+                except ValueError:
+                    return
+
+            self._selected_capture.set_min_max_values(min_value, max_value)
+
         self._min_max_frame = ctk.CTkFrame(self._captures_view)
         self._min_label = ctk.CTkLabel(self._min_max_frame, text="Min")
-        self._min_entry = ctk.CTkEntry(self._min_max_frame, width=100)
+        self._min_entry = Entry(
+            self._min_max_frame, width=100, command=__set_min_max_values_cb
+        )
         self._max_label = ctk.CTkLabel(self._min_max_frame, text="Max")
-        self._max_entry = ctk.CTkEntry(self._min_max_frame, width=100)
+        self._max_entry = Entry(
+            self._min_max_frame, width=100, command=__set_min_max_values_cb
+        )
 
         self._min_max_frame.grid(row=2, column=0, columnspan=2, sticky="w")
         self._min_label.grid(row=0, column=0)
@@ -530,9 +587,7 @@ class App(ctk.CTk):
         self._max_threads_txt = ctk.CTkLabel(
             self._settings_view, text="Max threads (0 for no limit)"
         )
-        self._max_threads_entry = Entry(
-            self._settings_view, command=__set_max_threads
-        )
+        self._max_threads_entry = Entry(self._settings_view, command=__set_max_threads)
         self._appearance_txt = ctk.CTkLabel(self._settings_view, text="Appearance")
         self._appearance_menu = ctk.CTkOptionMenu(
             self._settings_view,

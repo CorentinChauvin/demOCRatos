@@ -30,6 +30,8 @@ class Capture:
         self.show_preview = True  # whether to draw a preview of the captured area
         self._output_img = TkImage2(img_root)  # displayed output image
         self._output_txt = ctk.CTkLabel(img_root, text="-")
+        self._min_value = None  # minimum acceptable value for post-processing (not used if None)
+        self._max_value = None  # maximum acceptable value for post-processing (not used if None)
 
         self.set_ocr_method(ocr_method)
 
@@ -42,6 +44,15 @@ class Capture:
             self.y_min = y_min
             self.x_max = x_max
             self.y_max = y_max
+
+    def set_min_max_values(self, min_value: float | None, max_value: float | None):
+        """
+        Sets the extremum acceptable values of the number to detect with OCR
+
+        If None, the extremum won't be used.
+        """
+        self._min_value = min_value
+        self._max_value = max_value
 
     def display(self, column_idx: int):
         """
@@ -131,6 +142,26 @@ class Capture:
 
         if pre_config is not None:
             self._ocr_engine.set_pre_process_config(pre_config)
+
+    def post_process(self, output_str: str | None):
+        """
+        Turns the OCR output into a float. Returns None if it failed.
+        """
+        if output_str is None:
+            return None
+
+        try:
+            value = float(output_str)
+        except ValueError:
+            return None
+
+        if self._min_value is not None and value < self._min_value:
+            return None
+
+        if self._max_value is not None and value > self._max_value:
+            return None
+
+        return value
 
 
 class Captures:
@@ -287,17 +318,9 @@ class Captures:
 
         for name in futures:
             output, processed_img = futures[name].result()
-
-            if output is not None:
-                self[name].update(output, processed_img)
-
-            if output is not None:
-                try:
-                    output = float(output)
-                except ValueError:
-                    output = None
-
+            output = self[name].post_process(output)
             outputs[name] = output
+            self[name].update(output, processed_img)
 
         return outputs
 

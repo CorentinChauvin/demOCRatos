@@ -140,8 +140,10 @@ class TesseractOcrEngine(BaseOcrEngine):
         self._api = tesserocr.PyTessBaseAPI(
             path=os.popen("find /usr/share/tesseract-ocr -type d -name 'tessdata'")
             .read()
-            .strip()
+            .strip(),
+            psm=tesserocr.PSM.SINGLE_LINE
         )
+        self._api.SetVariable("tessedit_char_whitelist", "0123456789.+-")
 
     def _ocr(self, img: MatLike) -> str:
         """
