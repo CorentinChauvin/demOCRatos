@@ -1,5 +1,9 @@
 """
 Helper functions and classes for the TK app
+
+Author:  CorentinChauvin
+Year:    2024
+License: Apache 2.0
 """
 
 from __future__ import annotations
@@ -82,9 +86,6 @@ class TkImage:
     """
 
     def __init__(self, master: ctk.CTkBaseClass):
-        """
-        TODO
-        """
         self._fig = Figure(layout="tight")
         self._fig.patch.set_facecolor("xkcd:mint green")
         self._ax: Axes = self._fig.add_subplot(111)
@@ -108,28 +109,28 @@ class TkImage:
 
     def get_tk_canvas(self) -> tk.Canvas:
         """
-        TODO
+        Returns a reference to the drawable canvas
         """
         return self._tk_canvas.get_tk_widget()
 
 
 class TkImage2:
     """
-    TODO
+    Utility class to draw images in tkinter (more optimised than `TkImage`)
     """
 
     def __init__(self, master: ctk.CTkBaseClass):
-        """
-        TODO
-        """
         self._img = None
         self._canvas_img = None
         self._canvas = tk.Canvas(master)
 
-    def update(self, img: np.ndarray):
+    def update(self, img: np.ndarray | None):
         """
         Updates the image given a raw image (Numpy array)
         """
+        if img is None:
+            return
+
         if self._canvas_img is not None:
             self._canvas.delete(self._canvas_img)
 
@@ -139,7 +140,7 @@ class TkImage2:
 
     def get_tk_canvas(self) -> tk.Canvas:
         """
-        TODO
+        Returns a reference to the drawable canvas
         """
         return self._canvas
 
@@ -154,7 +155,7 @@ class RectangleSelectionWindow(ctk.CTkToplevel):
 
         # Start new window
         super().__init__(*args, **kwargs)
-        self.attributes("-fullscreen", True)  # TODO: bring this back
+        self.attributes("-fullscreen", True)
         self.config(cursor="cross")
         self.bind("<Escape>", lambda _: self.destroy())
 

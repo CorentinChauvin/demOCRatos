@@ -1,5 +1,9 @@
 """
 Class storing configuration data about a capture
+
+Author:  CorentinChauvin
+Year:    2024
+License: Apache 2.0
 """
 
 from src.gui_elements import TkImage2
@@ -30,8 +34,8 @@ class Capture:
         self.show_preview = True  # whether to draw a preview of the captured area
         self._output_img = TkImage2(img_root)  # displayed output image
         self._output_txt = ctk.CTkLabel(img_root, text="-")
-        self._min_value = None  # minimum acceptable value for post-processing (not used if None)
-        self._max_value = None  # maximum acceptable value for post-processing (not used if None)
+        self.min_value = None  # minimum acceptable value for post-processing (not used if None)
+        self.max_value = None  # maximum acceptable value for post-processing (not used if None)
 
         self.set_ocr_method(ocr_method)
 
@@ -51,8 +55,9 @@ class Capture:
 
         If None, the extremum won't be used.
         """
-        self._min_value = min_value
-        self._max_value = max_value
+        if self._can_edit:
+            self.min_value = min_value
+            self.max_value = max_value
 
     def display(self, column_idx: int):
         """
@@ -93,7 +98,6 @@ class Capture:
         if self.show_preview:
             self._output_img.update(processed_img)
             self._output_txt.configure(text=f"{self.name}: {output}")
-
 
     def slice_area(self, array: np.ndarray) -> np.ndarray:
         """
@@ -155,10 +159,10 @@ class Capture:
         except ValueError:
             return None
 
-        if self._min_value is not None and value < self._min_value:
+        if self.min_value is not None and value < self.min_value:
             return None
 
-        if self._max_value is not None and value > self._max_value:
+        if self.max_value is not None and value > self.max_value:
             return None
 
         return value
@@ -211,6 +215,8 @@ class Captures:
 
             config[name] = {}
             config[name]["area"] = [capture.x_min, capture.y_min, capture.x_max, capture.y_max]
+            config[name]["min_value"] = capture.min_value
+            config[name]["max_value"] = capture.max_value
             config[name]["is_enabled"] = capture.is_enabled
             config[name]["show_preview"] = capture.show_preview
             config[name]["ocr"] = {}
@@ -231,6 +237,8 @@ class Captures:
             capture = self.add_capture()
             capture.name = name
             capture.set_area(*config[name]["area"])
+            capture.min_value = config[name]["min_value"]
+            capture.max_value = config[name]["max_value"]
             capture.show_preview = config[name]["show_preview"]
             ocr = BaseOcrEngine.PreProcessConfig()
 

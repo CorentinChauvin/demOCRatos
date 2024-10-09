@@ -8,21 +8,33 @@
     <img src="assets/logo_high.png" width=400 />
 </div>
 
-Attempting to read a portion of the screen and plot its data real time.
+Attempting to read portions of a screen or a video and exporting its data in a CSV file.
 
-> Blazingly slow, but it kinda works
+> *Blazingly slow, but it kinda works*
+
+**Contents:**
+
+1. [Features](#features)
+2. [Install](#install)
+3. [Run](#run)
+4. [Notes](#notes)
+5. [Dependencies](#dependencies)
 
 ## Features
 
 - Real time recognitions of numbers of the screen.
 - Offline number recognition in a video file.
 - Works on easily configurable areas, as many as one wants.
-- Easy to integrate new OCR methods (see below TODO)
+- Integrated Tesseract OCR and EasyOCR.
+- Easy to add new OCR methods (see `src/ocr.py`).
+- Dead simple to use!
 
 ## Install
 
+This has been mainly developed and tested on Ubuntu 22.04, with Python 3.10.
+
 ```bash
-# Install Python version (if necessary)
+# Install Python version >= 3.10 (necessary on lower Ubuntu versions)
 sudo add-apt-repository ppa:deadsnakes/ppa
 sudo apt update
 sudo apt install python3.13 python3.13-venv python3.13-tk
@@ -48,22 +60,31 @@ python gui.py
 
 ## Notes
 
+- Known OCR issues:
+    - Characters confusion, depending on the font: `0` and `8`, `1` and `7`, `5` and `9`.
+    - Missing dot (*e.g.* `42.42` turned into `4242`).
+- Tips to improve OCR reliability:
+    - Upscale the detected area, to get a better characters resolution.
+    - Use min and max bounds to filter outliers out.
+    - Don't trust the OCR output too much. Potentially implement post-filtering based on knowledge of the recorded data. For example if measuring a variable that can only evolve slowly, big jumps in the output value can be marked as outliers and discarded.
 - When processing a video, enabling the preview can induce up to 20% overhead.
-- EasyOCR requires PyTorch and Scipy, so isn't lightweight. The first time the program is started, it will download necessary model weights (stored in `~/.EasyOCR/model`). See more details on the EasyOCR GitHub ([link](https://github.com/JaidedAI/EasyOCR)).
+- EasyOCR requires PyTorch and Scipy, so isn't lightweight. The first time the program is started, it will download necessary model weights (stored in `~/.EasyOCR/model`). See more details on the EasyOCR GitHub ([link](https://github.com/JaidedAI/EasyOCR)). With this application, it seems that EasyOCR is slower than Tesseract.
 
 ## Dependencies
 
-- https://github.com/opencv/opencv-python
-- https://github.com/tomschimansky/customtkinter
-- https://github.com/tesseract-ocr/tesseract
-- https://github.com/sirfz/tesserocr
-- https://github.com/JaidedAI/EasyOCR
+This work is merely a wrapper and a graphical interface for some already existing OCR implementations. It heavily uses Tkinter and CustomTkinter for the interface.
+
+- [OpenCV](https://github.com/opencv/opencv-python) (MIT license): image processing.
+- [CustomTkinter](https://github.com/tomschimansky/customtkinter) (MIT license): beautiful interface and GUI.
+- [Tesseract](https://github.com/tesseract-ocr/tesseract) (Apache 2.0): OCR API.
+- [Tesserocr](https://github.com/sirfz/tesserocr) (MIT license): Python wrapper for Tesseract.
+- [EasyOCR](https://github.com/JaidedAI/EasyOCR) (Apache 2.0): another OCR API.
 
 ## TODO
 
 - [x] Loading and processing videos
 - [x] Saving/loading configuration
 - [x] Multi threading, for less blazing slowness
-- [ ] Make it easy to add new OCR methods, and documenting it
+- [ ] Make it easier to add new OCR methods, and documenting it
 - [ ] Logging not only in the Python terminal, but also in the logging text box
 - [ ] Real time graphing

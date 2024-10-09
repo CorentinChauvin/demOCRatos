@@ -1,5 +1,10 @@
+#!/usr/bin/env python3
 """
-TODO
+Main entry point for the application
+
+Author:  CorentinChauvin
+Year:    2024
+License: Apache 2.0
 """
 
 from src.ocr import BaseOcrEngine, OcrMethod
@@ -44,8 +49,8 @@ class App(ctk.CTk):
         self.title("DemOCRatos - OCR for the people")
         # self.geometry(f"{1100}x{580}")
         self.iconphoto(True, ImageTk.PhotoImage(file="assets/logo_low.png"))
-        self.bind("<Escape>", lambda _: sys.exit())  # FIXME: for development only
-        self.bind("q", lambda _: sys.exit())  # FIXME: for development only
+        # self.bind("<Escape>", lambda _: sys.exit())  # FIXME: for development only
+        # self.bind("q", lambda _: sys.exit())  # FIXME: for development only
         self.protocol("WM_DELETE_WINDOW", self._on_closing_cb)
 
         self._rect_selec_window = None  # reference to the window to select the capture zone
@@ -85,12 +90,12 @@ class App(ctk.CTk):
         self.grid_rowconfigure(0, weight=0)
 
         # Set default values and statuses
-        self._stop_btn.configure(state="disabled")  # TODO: change state dynamically
+        self._stop_btn.configure(state="disabled")
 
         self._status_txt.configure(text="10:03 (12 FPS)")
         self._status_txt.configure(
             fg_color="green", text_color="white"
-        )  # TODO: change the colour depending on the status
+        )
 
         self._fps_settings_menu.set("10")
         self._ocr_settings_menu.set("Tesseract")
@@ -261,11 +266,23 @@ class App(ctk.CTk):
             with open(path) as file:
                 try:
                     config = json.load(file)
-                except (UnicodeDecodeError, json.decoder.JSONDecodeError):
+                except (UnicodeDecodeError, json.decoder.JSONDecodeError) as e:
                     print("ERROR: coudn't parse JSON config")
+                    print(e)
                     return
 
-            self._captures.load_config(config)
+            try:
+                new_captures = Captures(self._output_frame)
+                new_captures.load_config(config["captures"])
+                self._fps_settings_menu.set(config["fps"])
+                self._ocr_settings_menu.set(config["ocr_method"])
+                self._max_threads_entry.set_value(config["max_threads"])
+            except KeyError as e:
+                print("ERROR: couldn't parse JSON config")
+                print(e)
+                return
+
+            self._captures = new_captures
             self._data_recorder.reset_fields(self._captures.get_names())
             self._selected_capture = self._captures.get_first()
             self._update_capture_options()
@@ -282,7 +299,11 @@ class App(ctk.CTk):
                 return
 
             with open(path, "w") as file:
-                config = self._captures.get_config()
+                config = {}
+                config["captures"] = self._captures.get_config()
+                config["fps"] = self._fps_settings_menu.get()
+                config["ocr_method"] = self._ocr_settings_menu.get()
+                config["max_threads"] = self._max_threads_entry.get_value()
                 json.dump(config, file)
 
             print(config)
@@ -720,13 +741,15 @@ class App(ctk.CTk):
 
         def __update_entry_text(entry: ctk.CTkEntry, text):
             entry.delete(0, tk.END)
-            entry.insert(0, text)
+            entry.insert(0, text if text is not None else "")
 
         self._selected_capture.toggle_edit(False)
         __update_entry_text(self._rect_xmin_entry, self._selected_capture.x_min)
         __update_entry_text(self._rect_xmax_entry, self._selected_capture.x_max)
         __update_entry_text(self._rect_ymin_entry, self._selected_capture.y_min)
         __update_entry_text(self._rect_ymax_entry, self._selected_capture.y_max)
+        __update_entry_text(self._min_entry, self._selected_capture.min_value)
+        __update_entry_text(self._max_entry, self._selected_capture.max_value)
         self._selected_capture.toggle_edit(True)
 
         self._pre_process_config_frame.update_elements(

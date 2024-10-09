@@ -1,5 +1,9 @@
 """
-    Class to record real time data, and keep track of time
+Class to record real time data, and keep track of time
+
+Author:  CorentinChauvin
+Year:    2024
+License: Apache 2.0
 """
 
 import numpy as np
@@ -88,7 +92,7 @@ class DataRecorder:
             self._data = {key: [] for key in self._data}
             self._start_time = time()
             self._last_times = []
-        else:
+        elif self._is_recording:
             path = self._save_data()
 
         self._is_recording = is_recording

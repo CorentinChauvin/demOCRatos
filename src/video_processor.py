@@ -1,5 +1,9 @@
 """
 Processes a video and runs OCR on it
+
+Author:  CorentinChauvin
+Year:    2024
+License: Apache 2.0
 """
 
 from src.data_recorder import DataRecorder

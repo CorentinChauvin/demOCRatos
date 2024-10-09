@@ -1,6 +1,9 @@
-#!/usr/bin/env python3
 """
-    Runs OCR on an image to extract numbers
+Runs OCR on an image to extract numbers
+
+Author:  CorentinChauvin
+Year:    2024
+License: Apache 2.0
 """
 
 from cv2.typing import MatLike
