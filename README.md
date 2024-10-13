@@ -1,24 +1,31 @@
 # DemOCRatos - OCR for the people
 
-![version](https://img.shields.io/badge/Version-0.1-yellow)
+![version](https://img.shields.io/badge/Version-1.0-yellow)
 ![ubuntu 22.04](https://img.shields.io/badge/Ubuntu%2022.04-Kinda%20working-green)
 ![license](https://img.shields.io/badge/License-Apache%202.0-blue)
 
 <div align="center">
-    <img src="assets/logo_high.png" width=400 />
+    <img src="assets/logo_high.png" width=300 />
 </div>
 
 Attempting to read portions of a screen or a video and exporting its data in a CSV file.
 
 > *Blazingly slow, but it kinda works*
 
-**Contents:**
+<!-- **Contents:** -->
+## Contents
 
 1. [Features](#features)
 2. [Install](#install)
 3. [Run](#run)
 4. [Notes](#notes)
 5. [Dependencies](#dependencies)
+
+<div align="center">
+  <a href="https://vimeo.com/1019582159" target="_blank">
+    <img src="assets/video_preview.jpg" />
+  </a>
+</div>
 
 ## Features
 
@@ -80,11 +87,11 @@ This work is merely a wrapper and a graphical interface for some already existin
 - [Tesserocr](https://github.com/sirfz/tesserocr) (MIT license): Python wrapper for Tesseract.
 - [EasyOCR](https://github.com/JaidedAI/EasyOCR) (Apache 2.0): another OCR API.
 
-## TODO
+## TODO (maybe one day)
 
 - [x] Loading and processing videos
 - [x] Saving/loading configuration
 - [x] Multi threading, for less blazing slowness
 - [ ] Make it easier to add new OCR methods, and documenting it
-- [ ] Logging not only in the Python terminal, but also in the logging text box
+- [x] Logging not only in the Python terminal, but also in the logging text box
 - [ ] Real time graphing

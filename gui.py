@@ -15,7 +15,7 @@ from src.gui_elements import Entry, RectangleSelectionWindow
 import customtkinter as ctk
 import tkinter as tk
 import mss
-from PIL import Image, ImageGrab, ImageTk
+from PIL import ImageGrab, ImageTk
 import numpy as np
 import json
 from enum import Enum
@@ -598,7 +598,7 @@ class App(ctk.CTk):
         self._fps_settings_txt = ctk.CTkLabel(self._settings_view, text="FPS")
         self._fps_settings_menu = ctk.CTkOptionMenu(
             self._settings_view,
-            values=["0.1", "0.2", "1", "5", "10", "25"],
+            values=["0.1", "0.2", "1", "5", "10", "25", "50"],
             command=__update_fps,
         )
         self._ocr_settings_txt = ctk.CTkLabel(self._settings_view, text="OCR method")
@@ -673,9 +673,6 @@ class App(ctk.CTk):
                 __schedule_next_loop()
                 return
 
-            screen_img = Image.frombytes(
-                "RGB", screen_img.size, screen_img.bgra, "raw", "BGRX"
-            )
             screen_img = np.array(screen_img)[:, :, :3]
         else:
             screen_img = self._video_processor.get_preview_frame()
